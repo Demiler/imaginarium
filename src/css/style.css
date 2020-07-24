@@ -1,0 +1,467 @@
+/*==================================================================================*/
+
+.gameContainer {
+  margin: 5px;
+  display: grid;
+  grid-gap: 10px;
+  grid-template-columns: 240px 5fr;
+  grid-template-areas:
+    "sdbar starp"
+    "sdbar cards"
+}
+
+.sidebar {
+  grid-area: sdbar;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar .playerList {
+  background-color: #313141;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.sidebar .player:not(:last-child) {
+  padding-bottom: 7.5px;
+  margin-bottom: 7.5px;
+  border-bottom: 2px solid #2a2a3a;
+}
+
+.sidebar .player {
+  display: flex;
+  align-items: center;
+}
+
+.sidebar .playerStatus {
+  font-size: 12px;
+  color: #888;
+}
+
+.sidebar .playerScore {
+  margin-left: auto;
+  background-color: #282838;
+  padding: 8px;
+  border-radius: 50px;
+  text-align: center;
+  width: 20px;
+  height: 20px;
+}
+
+.sidebar .playerImage {
+  width: 40px;
+  height: 40px;
+  border-radius: 40px;
+  margin-right: 10px;
+}
+
+/*sidebar completed*/
+
+.leader {
+  position: relative;
+  grid-area: starp;
+  display: flex;
+  align-items: center;
+  /*border-bottom: 2px solid #414181;*/
+  border-radius: 0 0 0 20px;
+}
+
+.leader .leaderWrap {
+  display: flex;
+  background-color: #414181;
+  align-items: center;
+  border-radius: 20px 20px 0 20px;
+}
+
+.leader .leaderImage {
+  width: 30px;
+  height: 30px;
+  border-radius: 40px 0 0 40px;
+  margin-right: 10px;
+}
+
+.leader .leaderName {
+  margin-right: 10px;
+}
+
+.leader .playerScore {
+  padding-right: 8px;
+}
+
+.leader .leaderGuess {
+  /*width: 80%;*/
+  /*border-bottom: 2px solid #313141;*/
+  align-self: flex-end;
+  padding: 0 0 5px 10px;
+}
+
+.leader .leaderGuess.thinking {
+  color: #afa;
+}
+
+.leader .spacer {
+  margin-right: 2px;
+  opacity: 0;
+}
+
+/*star player completed*/
+
+.cardsContainer {
+  grid-area: cards;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.cardsContainer .card {
+  margin: 10px;
+  transition: .1s;
+  width: 200px;
+  /*width: 280px;*/
+  /*height: 100%;*/
+  border-radius: 10px;
+}
+
+.cardsContainer .card .cardImage {
+  width: inherit;
+  border-radius: inherit;
+}
+
+.cardsContainer .card.preview:hover {
+  transform: scale(1.2);
+  z-index: 1;
+}
+
+.sideblock {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  bottom: 10px;
+  right: 5px;
+}
+
+.sideblock div {
+  width: 30px;
+  height: 30px;
+}
+
+.sideblock .sound {
+/*.settings {*/
+  margin-right: 10px;
+  margin-bottom: 10px;
+}
+
+.sideblock .sound {
+  filter: invert(0.8);
+}
+
+.settingsWrap {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  background-color: #000000a0;
+  display: flex; 
+  align-items: center;
+
+  display: none;
+}
+
+.floatSettings {
+  width: 80%;
+  height: 80%;
+  margin: 0 auto;
+  padding: 5px;
+  border-radius: 5px;
+  background: #515161;
+
+
+  text-align: center;
+}
+
+.leader .guessField {
+  width: 100%;
+  background-color: transparent;
+  border: none;
+  color: #ddd;
+  padding: 10px 2px 0 10px;
+  outline: none;
+}
+
+.leader .guessField:active + hr, .leader .guessField:focus + hr {
+  border-bottom-color: #6c6cd3;
+}
+
+.leader .leaderUnderline {
+  margin: 0;
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: calc(100% - 6.01em);
+  border: none;
+  border-bottom: 2px solid #414181;
+  border-radius: 0px;
+  transition: .2s;
+}
+
+.card .choosen {
+  box-shadow: 0 0 5px 2px #2196F3;
+}
+
+.leader .leaderControl {
+  display: flex;
+  width: 100%;
+}
+
+.gameContainer .pickButton,
+.gameContainer .goButton {
+  border: none;
+  background: #414181;
+  color: #eee;
+  border-radius: 1000px 1000px 0 0;
+  position: fixed;
+  bottom: 0;
+  left: calc(50% - 100px);
+  width: 220px;
+  height: 50px;
+  font-size: 30px;
+  transition: .1s;
+  z-index: 2;
+}
+
+.gameContainer .pickButton.notReady,
+.gameContainer .goButton.notReady {
+  filter: grayscale(1) brightness(0.6);
+  height: 40px;
+  opacity: .8;
+}
+
+.gameContainer .pickButton.ready,
+.gameContainer .goButton.ready {
+  text-transform: uppercase;
+}
+
+.gameContainer .pickButton.ready:before,
+.gameContainer .goButton.ready:before {
+    content: '';
+    background: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
+    position: absolute;
+    top: -2px;
+    left:-2px;
+    background-size: 400%;
+    z-index: -1;
+    filter: blur(5px);
+    width: calc(100% + 4px);
+    height: calc(100% + 4px);
+    animation: glowing 20s linear infinite;
+    opacity: 0;
+    transition: opacity .3s ease-in-out;
+    border-radius: 1000px 1000px 0 0;
+}
+
+.gameContainer .pickButton.ready:not(.yep):hover:after,
+.gameContainer .goButton.ready:not(.yep):hover:after {
+    background: transparent;
+}
+
+.gameContainer .pickButton.ready:before,
+.gameContainer .goButton.ready:before {
+    opacity: 1;
+}
+
+.gameContainer .pickButton.ready:after,
+.gameContainer .goButton.ready:after {
+    z-index: -1;
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: inherit;
+    left: 0;
+    top: 0;
+    border-radius: 1000px 1000px 0 0;
+    transition: 1s;
+}
+
+.gameContainer .pickButton.yep,
+.gameContainer .goButton.yep {
+  width: 100%;
+  height: 100%;
+  left: 0;
+  border-radius: 0;
+  transition: 1s;
+}
+
+
+.gameContainer .goButton.yep:after,
+.gameContainer .goButton.yep:before {
+  border-radius: 0;
+  transition: 1s;
+}
+
+@keyframes glowing {
+  0% { background-position: 0 0; }
+  50% { background-position: 400% 0; }
+  100% { background-position: 0 0; }
+}
+
+button {
+  outline: none;
+}
+
+.cardsContainer .card.magnify {
+  transition: 0s;
+}
+
+/*.card.magnify::before {*/
+  /*content: '';*/
+  /*width: 100%;*/
+  /*height: 100%;*/
+  /*position: absolute;*/
+  /*top: 0;*/
+  /*left: 0;*/
+  /*background: black;*/
+  /*opacity: .5;*/
+/*}*/
+
+/*.card.magnify .cardImage {*/
+  /*position: absolute;*/
+  /*height: 94vh;*/
+  /*width: auto;*/
+  /*top: 3vh;*/
+  /*left: 20%;*/
+  /*border-radius: 25px;*/
+/*}*/
+
+.card .wrap {
+  height: inherit;
+  width: inherit;
+  border-radius: inherit;
+  transition: .2s;
+  position: relative;
+}
+
+.card.magnify .wrap {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: #000000aa;
+  border-radius: 0;
+  top: 0;
+  left: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card.magnify .wrap img {
+  height: 94vh;
+  width: auto;
+  border-radius: 2vh;
+}
+
+/*.card.preview .next,*/
+/*.card.preview .prev {*/
+  /*display: none;*/
+/*}*/
+
+/*.card.magnify .next,*/
+/*.card.magnify .prev {*/
+  /*display: block;*/
+  /*position: absolute;*/
+  /*width: 80px;*/
+  /*height: 92.6%;*/
+  /*top: 4%;*/
+  /*background: black;*/
+  /*opacity: 0;*/
+  /*transition: .1s;*/
+  /*text-align: center;*/
+  /*line-height: 13;*/
+  /*font-size: 50px;*/
+/*}*/
+
+/*.card.magnify .prev { left: 18%; }*/
+/*.card.magnify .next { right: 18%; }*/
+
+/*.card.magnify .next:hover,*/
+/*.card.magnify .prev:hover { opacity: .5; }*/
+
+.cardsContainer .card.picking {
+  border: 2px dashed #51519c;
+  transition: 1s;
+}
+
+.cardsContainer .card.picking img {
+  opacity: 0; 
+  transform: rotateY(360deg) scale(0.2);
+}
+
+.cardsContainer .card.waiting img {
+  opacity: 1;
+  transition: 1.5s;
+  transform: rotateY(0) scale(1);
+}
+
+.player .playerStatus {
+  /*opacity: 0;*/
+}
+
+.player.waiting .playerStatus {
+  color: #f0a331;
+  animation: fadein 2s;
+}
+
+@keyframes fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.cardsContainer .card .pickedPlayers {
+  position: absolute;
+  bottom: 0;
+  left: 10px;
+  display: flex;
+  transition: inhert;
+}
+
+
+.cardsContainer .card:hover .pickedPlayers,
+.cardsContainer .card:hover .cardOwner, 
+.cardsContainer .card.leader:hover .wrap:before {
+  opacity: .5;
+}
+
+.cardsContainer .card .pickedPlayer {
+  width: 40px;
+  height: 40px;
+  border-radius: 40px;
+  margin-left: -20px;
+}
+
+.cardsContainer .card.leader .cardImage {
+}
+
+
+.cardsContainer .card.leader .wrap:before {
+  content: '';
+  background-image: url("/assets/img/bootstrap.svg");
+  position: absolute;
+  top: calc(50% - 25px);
+  left: calc(50% - 25px);
+  width: 50px;
+  height: 50px;
+  background-repeat: no-repeat;
+  background-size: 50px;
+  filter: hue-rotate(120deg);
+}
+
+.cardsContainer .card .cardOwner {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  top: 0;
+  right: 0;
+  border-radius: 0 9px;
+}

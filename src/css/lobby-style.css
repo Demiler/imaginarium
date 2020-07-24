@@ -1,0 +1,136 @@
+im-lobby {
+  background-color: #212121;
+}
+
+header {
+  display: flex;
+  height: 30px;
+  width: auto;
+  background-color: #313141;
+  align-items: center;
+  padding: 0 5px;
+  margin-bottom: 20px;
+}
+
+header .name-tag {
+  margin-right: auto;
+}
+
+header .settings, header .sound {
+  margin-right: 10px;
+  background-color: #212131;
+  padding: 3px;
+  border-radius: 5px;
+}
+
+.lobby-container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+h1 {
+  text-align: center;
+}
+
+.lobby-container .player-list {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 0 100px 0 100px;
+  grid-gap: 20px;
+  padding: 10px;
+  background-color: #313141;
+  border-radius: 10px;
+  overflow-y: auto;
+  max-height: 400px;
+}
+
+.lobby-container .player-list .player {
+  display: flex;
+  align-items: center;
+}
+
+.lobby-container .player-list .player-image {
+  width: 50px;
+  height: 50px;
+  border-radius: 50px;
+  margin-right: 10px;
+  background-color: #212121;
+}
+
+.lobby-container .player-list .player-name {
+  font-size: 20px;
+}
+
+.lobby-container .player-list .player {
+  padding: 5px;
+  position: relative;
+}
+
+/*.lobby-container .player-list .ready {*/
+  /*[>background-color: #282838;<]*/
+  /*background-color: #2b5a2b;*/
+  /*border-radius: 5px 5px 5px 10px;*/
+/*}*/
+
+.lobby-container .player-list .ready::before {
+  content: '';
+  display: block;
+  width: 20px;
+  height: 20px;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  border-radius: 20px;
+  background-color: #20d157;
+  background-image: url("/assets/icons/check2.svg");
+  background-repeat: no-repeat;
+  background-position: 50%;
+}
+
+/*.lobby-container .player-list .ready .player-name {*/
+  /*color: #5f5;*/
+/*}*/
+
+.ready-button {
+  outline: none;
+  width: 200px;
+  height: 50px;
+  font-size: 30px;
+  border-radius: 10px;
+  margin-top: 10px;
+  background-color: #484876;
+  color: white;
+  border: none;
+  border-bottom: 5px solid #383866;
+  transition: .1s;
+
+  position: absolute;
+  bottom: 50px;
+  left: calc(50% - 100px);
+  text-transform: uppercase;
+}
+
+.ready-button:hover, .ready-button:focus {
+  filter: brightness(1.5);
+  outline: none;
+}
+
+.ready-button:active { border-bottom-width: 0; }
+
+.player-counter {
+  background-color: #313141;
+  width: 30%;
+  height: 50px;
+  /*bottom: -100px;*/
+  /*left: calc(50% - 25px);*/
+  margin: 0 auto;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 0 30px 30px;
+  font-size: 30px;
+}
+
