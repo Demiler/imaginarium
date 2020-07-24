@@ -8,6 +8,9 @@ class Lobby extends LitElement {
   static get properties() {
     return {
       players: { type: Array },
+      clicker: { type: Boolean },
+      host: { type: Object },
+      api: { type: Object }
     }
   }
 
@@ -43,8 +46,21 @@ class Lobby extends LitElement {
           </span>
         </div>
 
+        <button class="ready-button ${this.host.status}" @click=${this.readyButton}>
+          ${this.host.status === 'ready' ? 'not ready' : 'ready'}
+        </button>
+
       </div>
     `;
+  }
+
+  readyButton() {
+    this.host.status = this.host.status === 'ready' ? 'not-ready' : 'ready';
+    this.api.send('statusUpdate', { 
+      id: this.host.id, 
+      status: this.host.status,
+    });
+    this.requestUpdate();
   }
 
   createRenderRoot() { return this }

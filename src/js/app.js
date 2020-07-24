@@ -10,6 +10,7 @@ class ImApp extends LitElement {
     return {
       state: { type: String },
       players: { type: Array },
+      clicker: { type: Boolean },
     };
   }
 
@@ -18,12 +19,21 @@ class ImApp extends LitElement {
     this.state = 'lobby';
     this.apiRef = api;
     this.apiSetup();
+    this.players = [];
+    this.host;
+
+    this.clicker = false;
+    this.click = () => { this.clicker = !this.clicker }
+    this.clickerInteraval = setInterval(() => {
+      this.click();
+    }, 5000000);
   }
 
   render() {
     switch (this.state) {
       case 'lobby': return html`
-        <im-lobby .players=${this.players}></im-lobby>
+        <im-lobby .players=${this.players} .clicker=${this.clicker}
+          .host=${this.host} .api=${api}></im-lobby> 
       `;
       default: return html`not found`;
     }
@@ -34,22 +44,31 @@ class ImApp extends LitElement {
       console.log(`message from ${msg.id}: ${msg.data}`);
     });
 
-    api.on('yourId', (data) => this.myId = data);
+    api.on('yourId', (data) => this.hostId = data);
 
     api.on('newClient', (data) => {
       this.players.push(new Player(
         data.id, data.name, "0.png", "not-ready", 0
       ));
+      this.click();
     });
 
     api.on('removeClient', (data) => {
       this.players = this.players.filter(player => player.id !== data);
+      this.host = this.players.find(player => player.id === this.hostId);
     });
 
     api.on('baseUpdate', (data) => { 
       this.players = data.map(
         el => new Player(el.id, el.name, "0.png", "not-ready", 0)
       );
+      this.host = this.players.find(player => player.id === this.hostId);
+    });
+
+    api.on('statusUpdate', (data) => {
+      let player = this.players.find(player => player.id === data.id);
+      player.status = data.status;
+      this.click();
     });
   }
 

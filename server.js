@@ -33,7 +33,7 @@ server.on('connection', (ws) => {
 
   ws.on('message', (data) => {
     if (data === '__pong__') { 
-      console.log(ws.sendData.name + ' pong');
+      //console.log(ws.sendData.name + ' pong');
       return ws.isAlive = true;
     }
 
