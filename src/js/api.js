@@ -10,6 +10,8 @@ export class Api {
     this.send = (type, data) =>
       this.ws.send(JSON.stringify({ type, data }));
 
+    this.sendServer = (msg) => this.ws.send(`server ${msg}`);
+
     this.ws = new WebSocket('ws://localhost:8081/');
 
     this.ws.onopen = (event) => {

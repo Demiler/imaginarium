@@ -1,7 +1,8 @@
 import { LitElement, html } from 'lit-element'
 import { Lobby } from './lobby.js'
 import { Api } from './api.js'
-import { Player } from './player'
+//import { Player } from './player'
+const { Player } = require('./player.js');
 
 const api = new Api();
 
@@ -33,12 +34,23 @@ class ImApp extends LitElement {
     switch (this.state) {
       case 'lobby': return html`
         <im-lobby .players=${this.players} .clicker=${this.clicker}
-          .host=${this.host} .api=${api}></im-lobby> 
+          .host=${this.host} .api=${this.updateHostStatus}></im-lobby> 
       `;
       default: return html`not found`;
     }
   }
 
+  updateHostStatus() {
+    if (this.host.status !== 'ready' && this.host.status !== 'not-ready') {
+      this.host.status = 'not-ready';
+      this.requestUpdate();
+    }
+    api.sendServer(`statusUpdate ${this.host.status}`);
+  }
+
+  findHost() {
+    this.host = this.players.find(player => player.id === this.hostId);
+  }
   apiSetup() {
     api.on('newMessage', (msg) => {
       console.log(`message from ${msg.id}: ${msg.data}`);
@@ -47,22 +59,18 @@ class ImApp extends LitElement {
     api.on('yourId', (data) => this.hostId = data);
 
     api.on('newClient', (data) => {
-      this.players.push(new Player(
-        data.id, data.name, "0.png", "not-ready", 0
-      ));
+      this.players.push(Player.fromJSON(data));
       this.click();
     });
 
     api.on('removeClient', (data) => {
       this.players = this.players.filter(player => player.id !== data);
-      this.host = this.players.find(player => player.id === this.hostId);
+      this.findHost();
     });
 
     api.on('baseUpdate', (data) => { 
-      this.players = data.map(
-        el => new Player(el.id, el.name, "0.png", "not-ready", 0)
-      );
-      this.host = this.players.find(player => player.id === this.hostId);
+      this.players = data.map(player => Player.fromJSON(player));
+      this.findHost();
     });
 
     api.on('statusUpdate', (data) => {

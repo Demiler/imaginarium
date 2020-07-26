@@ -1,5 +1,6 @@
 import { LitElement, html } from 'lit-element'
 import '../css/lobby-style.css'
+import * as icons from './icons.js'
 
 const imgPath = '../../img';
 const avPath = '../../img/avatars';
@@ -18,6 +19,7 @@ class Lobby extends LitElement {
     super();
     this.players = [];
     this.updateMe = false;
+    this.iii = icons;
   }
 
   render() {
@@ -56,10 +58,7 @@ class Lobby extends LitElement {
 
   readyButton() {
     this.host.status = this.host.status === 'ready' ? 'not-ready' : 'ready';
-    this.api.send('statusUpdate', { 
-      id: this.host.id, 
-      status: this.host.status,
-    });
+    this.api();
     this.requestUpdate();
   }
 

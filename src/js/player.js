@@ -1,4 +1,4 @@
-export class Player {
+class Player {
   static get properties() {
     return {
       id: { type: String },
@@ -9,7 +9,7 @@ export class Player {
     };
   }
 
-  constructor(id, name, icon, status, score) {
+  constructor(id, name = 'guest', icon = '0.png', status = 'not-ready', score = 0) {
     this.id = id;
     this.name = name;
     this.icon = icon;
@@ -35,5 +35,6 @@ export class Player {
       data.status, 
       data.score
   )};
-
 }
+
+module.exports = { Player };
