@@ -1,6 +1,7 @@
 export class Api {
   constructor() {
     this.handlers = new Map()
+    this.tries = 0;
 
     this.on = (type, handler) => {
       if (!this.handlers.has(type)) this.handlers.set(type, [])
@@ -12,14 +13,30 @@ export class Api {
 
     this.sendServer = (msg) => this.ws.send(`server ${msg}`);
 
-    this.ws = new WebSocket('ws://localhost:8081/');
+    this.conect();
+  }
+
+  conect() {
+    this.ws = new WebSocket('ws://192.168.1.67:8081/');
 
     this.ws.onopen = (event) => {
       console.log('WebSocket is open now');
+      this.tries = 0;
+      clearInterval(this.reconnect);
     }
 
     this.ws.onclose = (event) => {
       console.log('WebSocket is closed now');
+      this.reconnect = setInterval(() => {
+        if (++this.tries < 3) {
+          this.conect();
+          console.log('Trying to reconnect');
+        }
+        else {
+          console.log('Im dead');
+          clearInterval(this.reconnect);
+        }
+      }, 1000);
     }
 
     this.ws.onerror = (event) => {
@@ -42,3 +59,5 @@ export class Api {
     }
   }
 }
+
+export const api = new Api();

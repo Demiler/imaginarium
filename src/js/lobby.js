@@ -1,6 +1,6 @@
 import { LitElement, html } from 'lit-element'
 import '../css/lobby-style.css'
-import * as icons from './icons.js'
+import { api } from './api';
 
 const imgPath = '../../img';
 const avPath = '../../img/avatars';
@@ -11,30 +11,37 @@ class Lobby extends LitElement {
       players: { type: Array },
       clicker: { type: Boolean },
       host: { type: Object },
-      api: { type: Object }
+      api: { type: Function },
+      next: { type: Object },
     }
   }
 
   constructor() {
     super();
-    this.players = [];
-    this.updateMe = false;
-    this.iii = icons;
+    this.players = api.players;
+    this.host = api.host;
+    this.checker = setInterval(() => {
+      this.ifAllReady();
+    }, 3000);
   }
 
   render() {
     return html`
+      <header>
+        <span class="name-tag">Imaginarium</span>
+        <div class="player">
+          <img class="player-image" style="background-color: ${this.host.color}" src="${avPath}/${this.host.icon}">
+          <span class="player-name">${this.host.name}</span>
+        </div>
+      </header>
       <div class="lobby-container">
-        <header>
-          <span class="name-tag">Imaginarium</span>
-        </header>
 
         <h1>Player List</h1>
 
         <div class="player-list">
           ${this.players.map(player => html`
             <div class="player ${player.status}">
-              <img class="player-image" src="${avPath}/${player.icon}">
+              <img class="player-image" style="background-color: ${player.color}" src="${avPath}/${player.icon}">
               <span class="player-name">${player.name}</span>
             </div>
           `)}
@@ -56,9 +63,17 @@ class Lobby extends LitElement {
     `;
   }
 
+  ifAllReady() {
+    if (this.players.every(player => player.status === 'ready')) {
+      clearInterval(this.checker);
+      this.next();
+    }
+  }
+
   readyButton() {
     this.host.status = this.host.status === 'ready' ? 'not-ready' : 'ready';
     this.api();
+    this.ifAllReady();
     this.requestUpdate();
   }
 
