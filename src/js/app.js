@@ -30,7 +30,7 @@ class ImApp extends LitElement {
       if (this.host === undefined) return;
       this.state = this.stateAfterLoading;
       clearInterval(this.loader);
-    }, 100);
+    }, 600);
   }
 
   render() {
@@ -40,30 +40,21 @@ class ImApp extends LitElement {
       `;
       case 'lobby': return html`
         <im-lobby .clicker=${this.clicker}
-        .api=${this.updateHostStatus} 
         .next=${()=>this.state='game'}
         ></im-lobby> 
       `;
       case 'game': return html`
-        <im-game .players=${this.players} .clicker=${this.clicker}
-          .host=${this.host} .api=${this.apiRef}>
-        </im-game>
+        <im-game .clicker=${this.clicker}></im-game>
       `;
       default: return html`not found`;
     }
   }
 
-  updateHostStatus() {
-    if (this.host.status !== 'ready' && this.host.status !== 'not-ready') {
-      this.host.status = 'not-ready';
-      this.requestUpdate();
-    }
-    api.sendServer(`statusUpdate ${this.host.status}`);
-  }
-
   findHost() {
     this.host = this.players.find(player => player.id === this.hostId);
+    api.host = this.host;
   }
+
   apiSetup() {
     api.on('newMessage', (msg) => {
       console.log(`message from ${msg.id}: ${msg.data}`);
@@ -88,7 +79,6 @@ class ImApp extends LitElement {
       this.players = data.map(player => Player.fromJSON(player));
       api.players = this.players;
       this.findHost();
-      api.host = this.host;
     });
 
     api.on('statusUpdate', (data) => {

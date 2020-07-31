@@ -11,7 +11,6 @@ class Lobby extends LitElement {
       players: { type: Array },
       clicker: { type: Boolean },
       host: { type: Object },
-      api: { type: Function },
       next: { type: Object },
     }
   }
@@ -20,9 +19,16 @@ class Lobby extends LitElement {
     super();
     this.players = api.players;
     this.host = api.host;
-    this.checker = setInterval(() => {
-      this.ifAllReady();
-    }, 3000);
+
+    //is it really necessary?
+    //this.checker = setInterval(() => {
+      //this.ifAllReady();
+    //}, 3000);
+
+    api.on('statusUpdate', (player) => {
+      if (player.status === 'ready')
+        this.ifAllReady();
+    });
   }
 
   render() {
@@ -63,6 +69,15 @@ class Lobby extends LitElement {
     `;
   }
 
+  updateHostStatus() {
+    if (this.host.status !== 'ready' && this.host.status !== 'not-ready') {
+      this.host.status = 'not-ready';
+      this.requestUpdate();
+    }
+    api.sendServer(`statusUpdate ${this.host.status}`);
+  }
+
+
   ifAllReady() {
     if (this.players.every(player => player.status === 'ready')) {
       clearInterval(this.checker);
@@ -72,7 +87,7 @@ class Lobby extends LitElement {
 
   readyButton() {
     this.host.status = this.host.status === 'ready' ? 'not-ready' : 'ready';
-    this.api();
+    this.updateHostStatus();
     this.ifAllReady();
     this.requestUpdate();
   }
