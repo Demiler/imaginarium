@@ -25,6 +25,27 @@ server.sendAllBut = (data, ignoreClient) => {
   });
 };
 
+let cards = [];
+let turnResults = []
+let compressed = false;
+const compress = () => {
+  if (compressed) return;
+  turnResults = Array.from(server.clients, (client) => {
+    let player = client.data;
+    let choose = {
+      owner: player,
+      card: player.choosedCard,
+      players: []
+    };
+    server.clients.forEach((client) => {
+      if (client.data.guessedCard === choose.card)
+        choose.players.push(client.data);
+    });
+    return choose;
+  });
+  compressed = true;
+}
+let readyPlayers = 1;
 //========================SERVER REQUESTS========================//
 server.requestHandlers = new Map();
 server.requestHandlers.set('statusUpdate', (ws, status) => {
@@ -32,6 +53,33 @@ server.requestHandlers.set('statusUpdate', (ws, status) => {
   server.sendAllBut(mmdt('statusUpdate', {id: ws.data.id, status}), ws);
 });
 
+server.requestHandlers.set('choosedCard', (ws, card) => {
+  cards.push(card);
+  ws.data.choosedCard = card;
+});
+
+server.requestHandlers.set('getChoosedCardsNoID', (ws) => {
+  ws.send(mmdt('choosedCards', cards));
+});
+
+server.requestHandlers.set('removeCard', (ws) => {
+  ws.data.guessedCard = undefined;
+  readyPlayers--;
+  console.log('removing a card');
+});
+
+server.requestHandlers.set('guessedCard', (ws, card) => {
+  console.log('settings a card');
+  if (compressed) return console.log('error!');
+  ws.data.guessedCard = card;
+
+  readyPlayers++;
+  if (readyPlayers === server.clients.size) {
+    compress();
+    server.sendAll(mmdt('choosedCards', turnResults));
+    server.sendAll(mmdt('gameUpdate', 'turn results'));
+  }
+});
 //======================SERVER ON CONNECTION=====================//
 server.on('connection', (ws) => {
   ws.data = new Player(uuid.v4(), getName(), getColor());

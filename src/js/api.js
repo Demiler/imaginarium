@@ -28,7 +28,8 @@ export class Api {
     this.ws.onclose = (event) => {
       console.log('WebSocket is closed now');
       this.reconnect = setInterval(() => {
-        if (++this.tries < 3) {
+        if (this.tries < 3) {
+          this.tries++;
           this.conect();
           console.log('Trying to reconnect');
         }
@@ -41,6 +42,7 @@ export class Api {
 
     this.ws.onerror = (event) => {
       console.log('Some sort of error in WebSocket');
+      clearInterval(this.reconnect);
     }
 
     this.ws.onmessage = (event) => {

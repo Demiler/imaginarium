@@ -145,6 +145,7 @@
   margin: 10px;
   transition: .1s;
   width: 200px;
+  height: auto;
   /*width: 280px;*/
   /*height: 100%;*/
   border-radius: 10px;
@@ -207,6 +208,55 @@
   transition: 1.5s;
   transform: rotateY(0) scale(1);
 }
+
+.cards-container .card .picked-players {
+  position: absolute;
+  bottom: 0;
+  left: 10px;
+  display: flex;
+  transition: inhert;
+}
+
+
+.cards-container .card:hover .picked-players,
+.cards-container .card:hover .card-owner, 
+.cards-container .card.leader:hover .wrap:before {
+  opacity: .5;
+}
+
+.cards-container .card .picked-player {
+  width: 40px;
+  height: 40px;
+  border-radius: 40px;
+  margin-left: -20px;
+}
+
+.cards-container .card.leader .card-image {
+}
+
+
+.cards-container .card.leader .wrap:before {
+  content: '';
+  background-image: url("/assets/icons/check2.svg");
+  position: absolute;
+  top: calc(50% - 25px);
+  left: calc(50% - 25px);
+  width: 50px;
+  height: 50px;
+  background-repeat: no-repeat;
+  background-size: 50px;
+  filter: hue-rotate(120deg);
+}
+
+.cards-container .card .card-owner {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  top: 0;
+  right: 0;
+  border-radius: 0 9px;
+}
+
 /*============cards style============*/
 /*============button style============*/
 .game-container .btn-0 {
