@@ -29,7 +29,7 @@ class Game extends LitElement {
     this.host = api.host;
     this.leader = this.players[0];
     this.leader.guess = '123';
-    this.state = this.leader === this.host ? 'leader guessing' : 'player waiting';
+    this.state = this.leader === this.host ? 'leader guessing' : 'waiting for leader';
     this.host.cards = getRandomCards();
     this.initOnState();
 
@@ -42,7 +42,7 @@ class Game extends LitElement {
   render() {
     switch (this.state) {
       case 'leader guessing': return this.drawLeaderGuessing();
-      case 'player waiting': return this.drawWaiting();
+      case 'waiting for leader': return this.drawWaitingForLeader();
       case 'player guessing': return this.drawPlayerGuessing();
       case 'picking own card': return this.drawPickingOwnCard();
       case 'waiting for others': return this.drawWaitingForOthers();
@@ -52,10 +52,42 @@ class Game extends LitElement {
 
   initOnState() {
     switch (this.state) {
-      case 'picking own card': this.updatePickBtn(); break;
-      case 'leader guessing': this.updateGoBtn(); break;
+      case 'picking own card': this.initPickingOwnCard(); break;
+      case 'waiting for leader': this.initWaitingForLeader(); break;
+      case 'leader guessing': this.initLeaderGuessing(); break;
+      case 'waiting for others': this.initWaitingForOthers(); break;
     }
   }
+
+  initPickingOwnCard() {
+    this.updatePickBtn();
+    this.players.forEach(pl => pl.status = 'picking');
+    this.leader.status = 'waiting';
+  }
+
+  initWaitingForLeader() {
+    this.players.forEach(pl => pl.status = 'waiting');
+    this.leader.status = 'guessing';
+  }
+
+  initLeaderGuessing() {
+    this.updateGoBtn();
+    this.players.forEach(pl => pl.status = 'waiting');
+    this.leader.status = 'guessing';
+  }
+
+  initWaitingForOthers() {
+    this.host.status = 'waiting';
+    api.sendServer(`statusUpdate ${this.host.status}`);
+  }
+
+  initAfterGuess() {
+    this.state = 'waiting for others'
+    this.players.forEach(pl => pl.status = 'picking');
+    this.leader.status = 'waiting';
+    api.send('gameUpdate', 'picking own card');
+  }
+
 
   updateGoBtn() {
     let card = this.host.choosenCard !== undefined;
@@ -90,11 +122,6 @@ class Game extends LitElement {
     }
   }
 
-  initAfterGuess() {
-    this.state = 'waiting for all'
-    api.send('gameUpdate', 'picking own card');
-  }
-
   chooseCard(event) {
     if (this.host.choosenCard !== undefined) {
       this.host.choosenCard.classList.remove("choosen");
@@ -102,11 +129,9 @@ class Game extends LitElement {
     if (this.host.choosenCard !== event.target) {
       this.host.choosenCard = event.target;
       event.target.classList.add("choosen");
-      //this.updateGoBtn();
     }
     else { 
       this.host.choosenCard = undefined;
-      //this.updateGoBtn();
     }
   }
 
@@ -117,10 +142,11 @@ class Game extends LitElement {
       this.pickBtn = 'pick a card';
   }
   
-  pickBtnGo(event) {
+  async pickBtnGo(event) {
     if (this.pickBtn !== 'go') return;
 
     event.target.classList.add('yep');
+    await sleep(1000);
     this.state = 'waiting for others';
     this.initOnState();
   }
@@ -158,7 +184,27 @@ class Game extends LitElement {
     `;
   }
 
-  drawWaiting() {
+  drawWaitingForOthers() {
+    return html`
+      <div class='game-container'>
+        ${this.drawSidebar()}
+        ${this.drawLeader()}        
+
+        <div class="cards-container">
+          ${this.players.map(player => html`
+            <div class="card ${player.status}">
+              <div class="wrap">
+                <img class="card-image" src="../img/cardbacksmall.png">
+              </div>
+            </div>
+          `)}
+        </div>
+
+      </div>
+    `;
+  }
+
+  drawWaitingForLeader() {
     return html`
       <div class='game-container'>
         ${this.drawSidebar()}

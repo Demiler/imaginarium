@@ -191,6 +191,22 @@
 .card .choosen {
   box-shadow: 0 0 5px 2px #2196F3;
 }
+
+.cards-container .card.picking {
+  border: 2px dashed #51519c;
+  transition: 1s;
+}
+
+.cards-container .card.picking img {
+  opacity: 0; 
+  transform: rotateY(360deg) scale(0.2);
+}
+
+.cards-container .card.waiting img {
+  opacity: 1;
+  transition: 1.5s;
+  transform: rotateY(0) scale(1);
+}
 /*============cards style============*/
 /*============button style============*/
 .game-container .btn-0 {
