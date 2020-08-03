@@ -17,12 +17,13 @@ export class Api {
   }
 
   conect() {
-    this.ws = new WebSocket('ws://192.168.1.67:8081/');
+    this.ws = new WebSocket(`ws://192.168.1.67:8081/`);
 
     this.ws.onopen = (event) => {
       console.log('WebSocket is open now');
       this.tries = 0;
       clearInterval(this.reconnect);
+      this.sendServer('clientId ' + localStorage.getItem('myId'));
     }
 
     this.ws.onclose = (event) => {

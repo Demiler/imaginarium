@@ -18,11 +18,11 @@ class ImApp extends LitElement {
     super();
     
     this.state = 'loading';
-    this.stateAfterLoading = 'game'; //debug only
+    this.stateAfterLoading = 'lobby'; //debug only
     this.api = api; //debug only
     this.players = [];
     this.apiSetup();
-    this.host;
+    this.hostId = localStorage.getItem('myId');
 
     this.clicker = false;
     this.click = () => { this.clicker = !this.clicker }
@@ -60,7 +60,10 @@ class ImApp extends LitElement {
       console.log(`message from ${msg.id}: ${msg.data}`);
     });
 
-    api.on('yourId', (data) => this.hostId = data);
+    api.on('yourId', (data) => { 
+      this.hostId = data;
+      localStorage.setItem('myId', this.hostId);
+    });
 
     api.on('newClient', (data) => {
       this.players.push(Player.fromJSON(data));
