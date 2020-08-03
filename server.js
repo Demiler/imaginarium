@@ -10,6 +10,7 @@ const server = new WebSocket.Server({
   port: 8081,
 });
 
+let clients = new Map();
 //=========================SERVER SEND==========================//
 server.sendAll = (data) => {
   server.clients.forEach((client) => {
@@ -71,28 +72,53 @@ server.requestHandlers.set('removeCard', (ws) => {
 server.requestHandlers.set('guessedCard', (ws, card) => {
   console.log('settings a card');
   if (compressed) return console.log('error!');
+
+  if (ws.data.guessedCard === undefined)
+    readyPlayers++;
   ws.data.guessedCard = card;
 
-  readyPlayers++;
   if (readyPlayers === server.clients.size) {
     compress();
     server.sendAll(mmdt('choosedCards', turnResults));
     server.sendAll(mmdt('gameUpdate', 'turn results'));
   }
 });
+
+server.requestHandlers.set('clientId', (ws, id) => {
+  let lostPlayer = lostPlayers.get(id);
+  //console.log(
+    //`Client id recieved: ${id}. Is player found: ${lostPlayer !== undefined}`);
+
+  if (lostPlayer !== undefined) {
+    //console.log('resurrecting old player. ' + lostPlayer.name);
+    ws.data = lostPlayer;
+    lostPlayers.delete(id);
+    server.sendAllBut(mmdt('statusUpdate', 
+      { id: ws.data.id, status: ws.data.status }), ws);
+  }
+  else {
+    //console.log('creating new player');
+    ws.data = new Player(uuid.v4(), getName(), getColor());
+    ws.data.removed = true;
+    ws.send(mmdt('yourId', ws.data.id));
+  }
+  clients.set(ws.data.id, ws.data);
+  //console.log();
+
+  if (ws.data.removed) {
+    server.sendAllBut(mmdt('newClient', ws.data), ws);
+    ws.data.removed = false;
+  }
+
+  let playerBase = Array.from(clients, client => client[1]);
+  ws.send(mmdt('baseUpdate', playerBase));
+});
+
+let lostPlayers = new Map();
 //======================SERVER ON CONNECTION=====================//
 server.on('connection', (ws) => {
-  ws.data = new Player(uuid.v4(), getName(), getColor());
   ws.isAlive = true;
-
-  let playerBase = Array.from(server.clients, (client) => client.data);
-
-  server.sendAllBut(mmdt('newClient', ws.data), ws);
-  while(ws.readyState !== WebSocket.OPEN);
-  ws.send(mmdt('yourId', ws.data.id));
-  ws.send(mmdt('baseUpdate', playerBase));
-
-//=====================SOCKET EVENTS INIT======================//
+  //=====================SOCKET EVENTS INIT======================//
   ws.on('message', (data) => {
     if (data === '__pong__') { 
       //console.log(ws.sendableData.name + ' pong');
@@ -110,7 +136,25 @@ server.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    server.sendAllBut(mmdt('removeClient', ws.data.id), ws);
+    if (ws.data === undefined) return;
+    lostPlayers.set(ws.data.id, ws.data);
+    //console.log('Connection lost with ' + ws.data.name);
+
+    server.sendAllBut(mmdt('statusUpdate', { id: ws.data.id, status: 'offline' }), ws);
+
+    setTimeout(() => { 
+      if (lostPlayers.has(ws.data.id)) {
+        ws.data.removed = true;
+        server.sendAllBut(mmdt('removeClient', ws.data.id), ws);
+        clients.delete(ws.data.id);
+        console.log('Sending reuqest to delete client ' + ws.data.name);
+      }
+    }, 10000);
+
+    setTimeout(() => { 
+      if (lostPlayers.delete(ws.data.id))
+        console.log(`${ws.data.name} was deleted completly`);
+    }, 30000);
   });
 });
 
