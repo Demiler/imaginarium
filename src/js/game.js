@@ -25,14 +25,20 @@ class Game extends LitElement {
 
   constructor() {
     super();
-    this.everyonesCards = [];
     this.players = api.players;
+    this.leaderId = -1;
     this.host = api.host;
-    this.leader = this.players[0];
-    this.leader.guess = '123';
-    this.state = this.leader === this.host ? 'leader guessing' : 'waiting for leader';
     this.host.cards = getRandomCards();
-    this.initOnState();
+
+    this.host.updateStatus = (newStatus) => {
+      this.host.status = newStatus;
+      api.sendServer(`statusUpdate ${newStatus}`);      
+      this.click();
+    };
+
+    this.initNewTurn();
+
+    this.click = () => { this.clicker = !this.clicker }
 
     api.on('gameUpdate', (data) => {
       this.state = data
@@ -44,6 +50,20 @@ class Game extends LitElement {
     api.on('choosedCards', (data) => {
       this.everyonesCards = data;
     });
+
+    api.on('removePlayer', (id) => {
+      if (id === this.leader.id) {
+        const waitPls = setInterval(() => {
+          let findLeader = this.players.find(pl => pl.id === this.leader.id);
+          if (findLeader !== undefined) {
+            this.leader = findLeader;
+            clearInterval(waitPls);
+          }
+        }, 500);
+      }
+    });
+
+    api.on('leaderGuess', (guess) => this.leader.guess = guess);
   }
 
   render() {
@@ -54,11 +74,12 @@ class Game extends LitElement {
       case 'picking own card': return this.drawPickingOwnCard();
       case 'waiting for others': return this.drawWaitingForOthers();
       case 'turn results': return this.drawTurnResults();
-      default: return html`not found ${this.state}`;
+      default: return html`not found: ${this.state}`;
     }
   }
 
   onStateCheck(data) {
+    this.click();
     switch (this.state) {
       case 'waiting for others': this.ifEveryoneChooseACard(); break;
       case 'guessing leader card': this.ifEveryoneGuessedACard(); break;
@@ -67,54 +88,77 @@ class Game extends LitElement {
 
   initOnState() {
     switch (this.state) {
-      case 'picking own card': this.initPickingOwnCard(); break;
-      case 'waiting for leader': this.initWaitingForLeader(); break;
-      case 'leader guessing': this.initLeaderGuessing(); break;
-      case 'waiting for others': this.initWaitingForOthers(); break;
+      case 'leader guessing'     : this.initLeaderGuessing(); break;
+      case 'waiting for leader'  : this.initWaitingForLeader(); break;
+      case 'picking own card'    : this.initPickingOwnCard(); break;
+      case 'waiting for others'  : this.initWaitingForOthers(); break;
       case 'guessing leader card': this.initGuessingLeaderCard(); break;
+      case 'turn results'        : this.initTurnResults(); break;
     }
   }
 
-  initPickingOwnCard() {
-    this.updatePickBtn();
-    this.players.forEach(pl => pl.status = 'picking');
-    this.leader.status = 'waiting';
-  }
-
-  initWaitingForLeader() {
-    this.players.forEach(pl => pl.status = 'waiting');
-    this.leader.status = 'guessing';
+  initNewTurn() {
+    this.everyonesCards = [];
+    this.leaderId = ++this.leaderId;
+    if (this.leaderId >= this.players.length) 
+      this.leaderId = 0;
+    this.leader = this.players[this.leaderId];
+    this.leader.guess = '';
+    this.state = this.leader === this.host ? 'leader guessing' : 'waiting for leader';
+    //this.host.cards.push(getNewCard());
+    this.initOnState();
   }
 
   initLeaderGuessing() {
     this.updateGoBtn();
-    this.players.forEach(pl => pl.status = 'waiting');
-    this.leader.status = 'guessing';
+    this.host.updateStatus('guessing');
+  }
+
+  initWaitingForLeader() {
+    this.host.updateStatus('waiting');
+  }
+
+  initPickingOwnCard() {
+    this.updatePickBtn();
+    this.host.updateStatus('picking');
   }
 
   initWaitingForOthers() {
-    this.host.status = 'waiting';
+    this.host.updateStatus('waiting');
     let card = this.host.choosenCard.currentSrc.split('/').pop();
-    api.sendServer(`statusUpdate ${this.host.status}`);      
     api.sendServer(`choosedCard ${card}`);      
     this.ifEveryoneChooseACard();
   }
 
   initGuessingLeaderCard() {
-    this.players.forEach(pl => pl.status = 'thinking');
-    this.leader.status = 'waiting';
+    if (this.host.id === this.leader.id)
+      this.host.updateStatus('watching');
+    else
+      this.host.updateStatus('thinking');
     this.host.choosenCard = undefined;
     this.updatePickBtn();
   }
 
-  initAfterGuess() {
-    this.state = 'waiting for others'
-    let card = this.host.choosenCard.currentSrc.split('/').pop();
-    api.sendServer(`statusUpdate ${this.host.status}`);      
-    this.players.forEach(pl => pl.status = 'picking');
-    this.leader.status = 'waiting';
-    api.send('gameUpdate', 'picking own card');
-    api.sendServer(`choosedCard ${card}`);      
+  initTurnResults() {
+    console.log('Next turn in: ');
+    setTimeout(() => {
+    console.log(5);
+    setTimeout(() => {
+    console.log(4);
+    setTimeout(() => {
+    console.log(3);
+    setTimeout(() => {
+    console.log(2);
+    setTimeout(() => {
+    console.log(1);
+    setTimeout(() => {
+      this.initNewTurn()
+    }, 1000);
+    }, 1000);
+    }, 1000);
+    }, 1000);
+    }, 1000);
+    }, 1000);
   }
 
   updateGoBtn() {
@@ -145,8 +189,11 @@ class Game extends LitElement {
   async goBtnGo(event) {
     if (this.goBtn === 'go') {
       event.currentTarget.classList.add('yep');
+      api.send('gameUpdate', 'picking own card');
+      api.send('leaderGuess', this.leader.guess);
       await sleep(1500);
-      this.initAfterGuess();
+      this.state = 'waiting for others';
+      this.initOnState();
     }
   }
 
@@ -198,20 +245,6 @@ class Game extends LitElement {
     }
   }
 
-  drawCards(clickAction = ()=>{}, cards = this.host.cards) {
-    return html`
-      <div class="cards-container">
-        ${cards.map(card => html`
-          <div class="card preview" @click="${clickAction}">
-            <div class="wrap">
-              <img class="card-image" src="${cardsPath}/${card}">
-            </div>
-          </div>
-        `)}
-      </div>
-    `;
-  }
-
   drawTurnResults() {
     return html`
       <div class='game-container'>
@@ -250,6 +283,9 @@ class Game extends LitElement {
 
   drawGuessingLeaderCard() {
     return html`
+      ${this.leader.id !== this.host.id ? html
+      `<im-popup .time=${2500} .text=${"Guess what leader thought"}></im-popup>`
+      : html``}
       <div class='game-container'>
         ${this.drawSidebar()}
         ${this.drawLeader()}        
@@ -257,11 +293,11 @@ class Game extends LitElement {
           if (this.host === this.leader) return;
           this.chooseCard(event);
           if (this.host.choosenCard === undefined) {
-            this.host.status = 'thinking';
+            this.host.updateStatus('thinking');
             api.sendServer('removeCard');
           }
           else {
-            this.host.status = 'waiting';
+            this.host.updateStatus('waiting');
             this.ifEveryoneGuessedACard();
             let card = this.host.choosenCard.currentSrc.split('/').pop();
             api.sendServer(`guessedCard ${card}`);
@@ -324,12 +360,14 @@ class Game extends LitElement {
 
   drawLeaderGuessing() {
     return html`
+      <im-popup .time=${2500} .text=${"Pick a card a guess association to it"}></im-popup>
       <div class='game-container'>
         ${this.drawSidebar()}
 
-        <div class="leader">
+        <div class="leader-container">
           <div class="leader-wrap">
-            <img class="leader-image" src="../img/avatars/${this.leader.icon}">
+            <img class="leader-image" src="../img/avatars/${this.leader.icon}"
+              style="background-color: ${this.leader.color}">
             <span class="leader-name">${this.leader.name}</span>
             <span class="player-score">${this.leader.score}</span>
           </div>
@@ -358,7 +396,8 @@ class Game extends LitElement {
     return html`
       <div class="sidebar">
         <div class="player-list">
-          ${this.players.filter(player => player !== this.leader).map(player => html`
+          ${this.players.filter(player => player.id !== this.leader.id).map(
+          player => html`
             <div class="player ${player.status}">
               <img class="player-image" style="background-color:${player.color}" src="../img/avatars/${player.icon}">
               <div class="playerSnN">
@@ -375,15 +414,36 @@ class Game extends LitElement {
 
   drawLeader() {
     return html`
-    <div class="leader">
+    <div class="leader-container">
       <div class="leader-wrap">
-        <img class="leader-image" src="../img/avatars/${this.leader.icon}">
+        <img class="leader-image" src="../img/avatars/${this.leader.icon}"
+          style="background-color: ${this.leader.color}">
         <span class="leader-name">${this.leader.name}</span>
         <span class="player-score">${this.leader.score}</span>
       </div>
-      <div class="leader-guess">${this.leader.guess}</div>
+      ${this.leader.status === 'guessing' ? 
+          html`<div class='leader-status ${this.leader.status}'>
+            ${this.leader.status}</div>`
+          :
+          html`<div class="leader-guess ${this.leader.status}">
+            ${this.leader.guess}</div>`
+        }
       <hr class="leader-underline">
     </div>
+    `;
+  }
+
+  drawCards(clickAction = ()=>{}, cards = this.host.cards) {
+    return html`
+      <div class="cards-container">
+        ${cards.map(card => html`
+          <div class="card preview" @click="${clickAction}">
+            <div class="wrap">
+              <img class="card-image" src="${cardsPath}/${card}">
+            </div>
+          </div>
+        `)}
+      </div>
     `;
   }
 
