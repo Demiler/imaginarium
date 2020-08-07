@@ -1,16 +1,27 @@
 const uuid        = require('uuid');
 const WebSocket   = require('ws');
-const { Player }  = require('./src/js/player.js');
-const { getName } = require('./src/js/utils/names.js');
-const { getColor } = require('./src/js/utils/colors.js');
+const { Player }  = require('../src/js/player.js');
+const { getName } = require('../src/js/utils/names.js');
+const { getColor } = require('../src/js/utils/colors.js');
+const { cardsDB } = require('./cards-db.js');
+const { log, Card } = require('./logger.js');
 
 const mmdt = (type, data) => JSON.stringify({ type, data }); //make me data type
+log.setLog('sgenera', true);
+log.setLog('sclient', true);
 
 const server = new WebSocket.Server({ 
   port: 8081,
 });
 
-let clients = new Map();
+//===========================CONFIG=============================//
+let clientBase = new Map();
+let lostPlayers = new Map();
+let cards = [];
+let turnResults = []
+let compressed = false;
+let readyPlayers = 1;
+let firstTurn = true;
 //=========================SERVER SEND==========================//
 server.sendAll = (data) => {
   server.clients.forEach((client) => {
@@ -26,9 +37,6 @@ server.sendAllBut = (data, ignoreClient) => {
   });
 };
 
-let cards = [];
-let turnResults = []
-let compressed = false;
 const compress = () => {
   if (compressed) return;
   turnResults = Array.from(server.clients, (client) => {
@@ -46,7 +54,6 @@ const compress = () => {
   });
   compressed = true;
 }
-let readyPlayers = 1;
 //========================SERVER REQUESTS========================//
 server.requestHandlers = new Map();
 server.requestHandlers.set('statusUpdate', (ws, status) => {
@@ -84,37 +91,66 @@ server.requestHandlers.set('guessedCard', (ws, card) => {
   }
 });
 
+server.requestHandlers.set('newTurn', () => {
+  readyPlayers = 1;
+  cards = [];
+  compressed = false;
+
+  if (!firstTurn) { 
+    let newCards = cardsDB.getNCards(clientBase.size);
+
+    server.clients.forEach(client => {
+      client.data.guessedCard = undefined;
+      client.send(mmdt('cardsUpdate', { 
+        remove: client.data.choosedCard,
+        add: newCards.pop().path,
+      }));
+      client.data.choosedCard = undefined;
+    });
+  }
+  firstTurn = false;
+});
+
+//======================SERVER ON CLIENT=====================//
 server.requestHandlers.set('clientId', (ws, id) => {
+  if (clientBase.has(id) && !lostPlayers.has(id)) {
+    log.do('sclient', 'Same client opened game in another tab');
+    ws.send(mmdt('close this tab'));
+    return;
+  }
+
   let lostPlayer = lostPlayers.get(id);
-  //console.log(
-    //`Client id recieved: ${id}. Is player found: ${lostPlayer !== undefined}`);
+  log.do('sclient',
+    `Client id recieved: ${id}. Is player found: ${lostPlayer !== undefined}`);
 
   if (lostPlayer !== undefined) {
-    //console.log('resurrecting old player. ' + lostPlayer.name);
+    log.do('sclient', 'resurrecting old player. ' + lostPlayer.name);
     ws.data = lostPlayer;
     lostPlayers.delete(id);
     server.sendAllBut(mmdt('statusUpdate', 
       { id: ws.data.id, status: ws.data.status }), ws);
   }
   else {
-    //console.log('creating new player');
     ws.data = new Player(uuid.v4(), getName(), getColor());
+    ws.data.cards = cardsDB.getNCards(6).map(card => card.path);
+    log.do('sclient', `creating new player ${ws.data.id}. ${ws.data.name}`);
+
     ws.data.removed = true;
     ws.send(mmdt('yourId', ws.data.id));
   }
-  clients.set(ws.data.id, ws.data);
-  //console.log();
+  clientBase.set(ws.data.id, ws.data);
+  log.do('sclient', '\n');
 
   if (ws.data.removed) {
     server.sendAllBut(mmdt('newClient', ws.data), ws);
     ws.data.removed = false;
   }
 
-  let playerBase = Array.from(clients, client => client[1]);
+  let playerBase = Array.from(clientBase, client => client[1]);
   ws.send(mmdt('baseUpdate', playerBase));
+  ws.send(mmdt('cards', ws.data.cards));
 });
 
-let lostPlayers = new Map();
 //======================SERVER ON CONNECTION=====================//
 server.on('connection', (ws) => {
   ws.isAlive = true;
@@ -146,7 +182,7 @@ server.on('connection', (ws) => {
       if (lostPlayers.has(ws.data.id)) {
         ws.data.removed = true;
         server.sendAllBut(mmdt('removeClient', ws.data.id), ws);
-        clients.delete(ws.data.id);
+        clientBase.delete(ws.data.id);
         console.log('Sending reuqest to delete client ' + ws.data.name);
       }
     }, 10000);

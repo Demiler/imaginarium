@@ -64,3 +64,7 @@ export class Api {
 }
 
 export const api = new Api();
+
+api.on('cards', (data) => {
+  api.hostCards = data;
+});

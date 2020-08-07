@@ -46,6 +46,28 @@ class ImApp extends LitElement {
       case 'game': return html`
         <im-game .clicker=${this.clicker}></im-game>
       `;
+
+      case 'close tab': return html`
+        <style>
+          #closeTab {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          #wrap {
+            text-align: center;
+            font-size: 40px;
+          }
+        </style>
+        <div id="closeTab"><span id="wrap">
+            You can use only one tab at a time. Please close this one.
+        </span><div>
+      `;
       default: return html`not found`;
     }
   }
@@ -88,6 +110,11 @@ class ImApp extends LitElement {
       let player = this.players.find(player => player.id === data.id);
       player.status = data.status;
       this.click();
+    });
+
+    api.on('close this tab', () => {
+      clearInterval(this.loader);
+      this.state = 'close tab';
     });
   }
 

@@ -28,7 +28,7 @@ class Game extends LitElement {
     this.players = api.players;
     this.leaderId = -1;
     this.host = api.host;
-    this.host.cards = getRandomCards();
+    this.host.cards = api.hostCards;
 
     this.host.updateStatus = (newStatus) => {
       this.host.status = newStatus;
@@ -51,19 +51,15 @@ class Game extends LitElement {
       this.everyonesCards = data;
     });
 
-    api.on('removePlayer', (id) => {
-      if (id === this.leader.id) {
-        const waitPls = setInterval(() => {
-          let findLeader = this.players.find(pl => pl.id === this.leader.id);
-          if (findLeader !== undefined) {
-            this.leader = findLeader;
-            clearInterval(waitPls);
-          }
-        }, 500);
-      }
-    });
-
     api.on('leaderGuess', (guess) => this.leader.guess = guess);
+
+    api.on('cardsUpdate', (data) => {
+      console.log(data);
+      let card = this.host.cards.findIndex(c => c === data.remove);
+      if (card === undefined) return console.log('wtf card not found!');
+      this.host.cards[card] = data.add;
+      this.click();
+    });
   }
 
   render() {
@@ -105,7 +101,8 @@ class Game extends LitElement {
     this.leader = this.players[this.leaderId];
     this.leader.guess = '';
     this.state = this.leader === this.host ? 'leader guessing' : 'waiting for leader';
-    //this.host.cards.push(getNewCard());
+    if (this.leader.id === this.host.id)
+      api.sendServer('newTurn');
     this.initOnState();
   }
 
