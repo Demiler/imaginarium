@@ -21,7 +21,7 @@ class Logger {
       this.do('logger', from + ' log is not found');
   }
 
-  do(from, msg) {
+  do(from, msg = '\n') {
     let log = this.logs.get(from);
     if (log)
       console.log(msg);
