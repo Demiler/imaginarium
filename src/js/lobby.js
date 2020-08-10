@@ -8,26 +8,15 @@ const avPath = '../../img/avatars';
 class Lobby extends LitElement {
   static get properties() {
     return {
-      players: { type: Array },
       clicker: { type: Boolean },
-      host: { type: Object },
-      next: { type: Object },
     }
   }
 
   constructor() {
     super();
-    this.players = api.players;
-    this.host = api.host;
-
-    //is it really necessary?
-    //this.checker = setInterval(() => {
-      //this.ifAllReady();
-    //}, 3000);
-
-    api.on('statusUpdate', (player) => {
-      if (player.status === 'ready')
-        this.ifAllReady();
+    api.on('colorUpdate', (data) => {
+      api.players.find(pl => pl.id === data.id).color = data.color;
+      this.requestUpdate()
     });
   }
 
@@ -36,8 +25,9 @@ class Lobby extends LitElement {
       <header>
         <span class="name-tag">Imaginarium</span>
         <div class="player">
-          <img class="player-image" style="background-color: ${this.host.color}" src="${avPath}/${this.host.icon}">
-          <span class="player-name">${this.host.name}</span>
+          <img class="player-image" style="background-color: ${api.host.color}" 
+            src="${avPath}/${api.host.icon}" @click=${() => api.sendServer('IWantNewColor')}>
+          <span class="player-name">${api.host.name}</span>
         </div>
       </header>
       <div class="lobby-container">
@@ -45,7 +35,7 @@ class Lobby extends LitElement {
         <h1>Player List</h1>
 
         <div class="player-list">
-          ${this.players.map(player => html`
+          ${api.players.map(player => html`
             <div class="player ${player.status}">
               <img class="player-image" style="background-color: ${player.color}" src="${avPath}/${player.icon}">
               <span class="player-name">${player.name}</span>
@@ -55,40 +45,23 @@ class Lobby extends LitElement {
 
         <div class="player-counter">
           <span class="ready">
-            ${this.players.filter(player => player.status === "ready").length}
+            ${api.players.filter(player => player.status === "ready").length}
           </span>/<span class="total">
-            ${this.players.length}
+            ${api.players.length}
           </span>
         </div>
 
-        <button class="ready-button ${this.host.status}" @click=${this.readyButton}>
-          ${this.host.status === 'ready' ? 'not ready' : 'ready'}
+        <button class="ready-button ${api.host.status}" @click=${this.readyButton}>
+          ${api.host.status === 'ready' ? 'not ready' : 'ready'}
         </button>
 
       </div>
     `;
   }
 
-  updateHostStatus() {
-    if (this.host.status !== 'ready' && this.host.status !== 'not-ready') {
-      this.host.status = 'not-ready';
-      this.requestUpdate();
-    }
-    api.sendServer(`statusUpdate ${this.host.status}`);
-  }
-
-
-  ifAllReady() {
-    if (this.players.every(player => player.status === 'ready')) {
-      clearInterval(this.checker);
-      this.next();
-    }
-  }
-
   readyButton() {
-    this.host.status = this.host.status === 'ready' ? 'not-ready' : 'ready';
-    this.updateHostStatus();
-    this.ifAllReady();
+    api.host.status = api.host.status === 'ready' ? 'not-ready' : 'ready';
+    api.sendServer('statusUpdate', api.host.status);
     this.requestUpdate();
   }
 

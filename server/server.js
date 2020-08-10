@@ -1,206 +1,176 @@
-const uuid        = require('uuid');
-const WebSocket   = require('ws');
+const WebSocket = require('ws');
+const uuid = require('uuid');
+const { mmdt } = require('./send');
+const { log } = require('./logger.js');
 const { Player }  = require('../src/js/player.js');
 const { getName } = require('../src/js/utils/names.js');
 const { getColor } = require('../src/js/utils/colors.js');
 const { cardsDB } = require('./cards-db.js');
-const { log, Card } = require('./logger.js');
 
-const mmdt = (type, data) => JSON.stringify({ type, data }); //make me data type
-log.setLog('sgenera', true);
+//============================LOGS==============================//
+log.setLog('spipo', false);
+log.setLog('serror', true);
 log.setLog('sclient', true);
-
-const server = new WebSocket.Server({ 
+log.setLog('shandler', false);
+//===========================CONFIG=============================//
+const server = new WebSocket.Server({
   port: 8081,
 });
 
-//===========================CONFIG=============================//
 let clientBase = new Map();
-let lostPlayers = new Map();
-let cards = [];
-let turnResults = []
-let compressed = false;
-let readyPlayers = 1;
-let firstTurn = true;
-//=========================SERVER SEND==========================//
-server.sendAll = (data) => {
-  server.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN)
-      client.send(data);
-  });
-};
+let lostClients = new Map();
+let appState = 'lobby';
 
-server.sendAllBut = (data, ignoreClient) => {
-  server.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN && client !== ignoreClient)
-      client.send(data);
-  });
-};
+//==========================HANDLERS============================//
+server.handlers = new Map();
+server.handleRequest = (ws, data) => {
+  const type = data.split(' ')[0]; 
+  const msg = data.substr(type.length + 1);
+  const handler = server.handlers.get(type);
+  log.do('shandler', `Received handler '${type}' with '${msg}'`);
 
-const compress = () => {
-  if (compressed) return;
-  turnResults = Array.from(server.clients, (client) => {
-    let player = client.data;
-    let choose = {
-      owner: player,
-      card: player.choosedCard,
-      players: []
-    };
-    server.clients.forEach((client) => {
-      if (client.data.guessedCard === choose.card)
-        choose.players.push(client.data);
-    });
-    return choose;
-  });
-  compressed = true;
+  if (handler) handler(ws, msg);
+  else log.do('serror', `handler '${type}' not found`);
 }
-//========================SERVER REQUESTS========================//
-server.requestHandlers = new Map();
-server.requestHandlers.set('statusUpdate', (ws, status) => {
-  ws.data.status = status;
-  server.sendAllBut(mmdt('statusUpdate', {id: ws.data.id, status}), ws);
+
+server.handlers.set('connected', (ws, id) => handleClient(ws, id));
+
+server.handlers.set('IWantNewColor', (ws) => {
+  ws.data.player.color = getColor();
+  server.sendAll('colorUpdate', { id: ws.data.player.id, color: ws.data.player.color });
 });
 
-server.requestHandlers.set('choosedCard', (ws, card) => {
-  cards.push(card);
-  ws.data.choosedCard = card;
-});
+//======================CONNECTION SETUP========================//
+server.on('connection', ws => {
+  ws.isAlive = true;    //used for ping-pong
+  ws.isActive = false;  //used for detecting same client 
 
-server.requestHandlers.set('getChoosedCardsNoID', (ws) => {
-  ws.send(mmdt('choosedCards', cards));
-});
+  ws.say = (type, data) => ws.send(JSON.stringify({ type, data }));
 
-server.requestHandlers.set('removeCard', (ws) => {
-  ws.data.guessedCard = undefined;
-  readyPlayers--;
-  console.log('removing a card');
-});
-
-server.requestHandlers.set('guessedCard', (ws, card) => {
-  console.log('settings a card');
-  if (compressed) return console.log('error!');
-
-  if (ws.data.guessedCard === undefined)
-    readyPlayers++;
-  ws.data.guessedCard = card;
-
-  if (readyPlayers === server.clients.size) {
-    compress();
-    server.sendAll(mmdt('choosedCards', turnResults));
-    server.sendAll(mmdt('gameUpdate', 'turn results'));
-  }
-});
-
-server.requestHandlers.set('newTurn', () => {
-  readyPlayers = 1;
-  cards = [];
-  compressed = false;
-
-  if (!firstTurn) { 
-    let newCards = cardsDB.getNCards(clientBase.size);
-
-    server.clients.forEach(client => {
-      client.data.guessedCard = undefined;
-      client.send(mmdt('cardsUpdate', { 
-        remove: client.data.choosedCard,
-        add: newCards.pop().path,
-      }));
-      client.data.choosedCard = undefined;
-    });
-  }
-  firstTurn = false;
-});
-
-//======================SERVER ON CLIENT=====================//
-server.requestHandlers.set('clientId', (ws, id) => {
-  if (clientBase.has(id) && !lostPlayers.has(id)) {
-    log.do('sclient', 'Same client opened game in another tab');
-    ws.send(mmdt('close this tab'));
-    return;
-  }
-
-  let lostPlayer = lostPlayers.get(id);
-  log.do('sclient',
-    `Client id recieved: ${id}. Is player found: ${lostPlayer !== undefined}`);
-
-  if (lostPlayer !== undefined) {
-    log.do('sclient', 'resurrecting old player. ' + lostPlayer.name);
-    ws.data = lostPlayer;
-    lostPlayers.delete(id);
-    server.sendAllBut(mmdt('statusUpdate', 
-      { id: ws.data.id, status: ws.data.status }), ws);
-  }
-  else {
-    ws.data = new Player(uuid.v4(), getName(), getColor());
-    ws.data.cards = cardsDB.getNCards(6).map(card => card.path);
-    log.do('sclient', `creating new player ${ws.data.id}. ${ws.data.name}`);
-
-    ws.data.removed = true;
-    ws.send(mmdt('yourId', ws.data.id));
-  }
-  clientBase.set(ws.data.id, ws.data);
-  log.do('sclient', '\n');
-
-  if (ws.data.removed) {
-    server.sendAllBut(mmdt('newClient', ws.data), ws);
-    ws.data.removed = false;
-  }
-
-  let playerBase = Array.from(clientBase, client => client[1]);
-  ws.send(mmdt('baseUpdate', playerBase));
-  ws.send(mmdt('cards', ws.data.cards));
-});
-
-//======================SERVER ON CONNECTION=====================//
-server.on('connection', (ws) => {
-  ws.isAlive = true;
-  //=====================SOCKET EVENTS INIT======================//
   ws.on('message', (data) => {
-    if (data === '__pong__') { 
-      //console.log(ws.sendableData.name + ' pong');
-      ws.isAlive = true;
-    }
-    else if (data.startsWith('server')) {
-      const split = data.split(' ');
-      const handler = server.requestHandlers.get(split[1]);
-      if (handler === undefined)
-        return console.log('unknown server request ' + data);
-      handler(ws, split[2]);
-    }
+    if (data.startsWith('server'))
+      server.handleRequest(ws, data.substr(7)); //7 = 'server '.length
     else
-      server.sendAllBut(data, ws);
+      server.sendAllButRaw(data, ws)
   });
 
   ws.on('close', () => {
-    if (ws.data === undefined) return;
-    lostPlayers.set(ws.data.id, ws.data);
-    //console.log('Connection lost with ' + ws.data.name);
+    if (!ws.isActive) return;
+    log.do('sclient', `Connection lost with ${ws.data.player.name}`);
+    handleDisconnect(ws);
+  });
 
-    server.sendAllBut(mmdt('statusUpdate', { id: ws.data.id, status: 'offline' }), ws);
-
-    setTimeout(() => { 
-      if (lostPlayers.has(ws.data.id)) {
-        ws.data.removed = true;
-        server.sendAllBut(mmdt('removeClient', ws.data.id), ws);
-        clientBase.delete(ws.data.id);
-        console.log('Sending reuqest to delete client ' + ws.data.name);
-      }
-    }, 10000);
-
-    setTimeout(() => { 
-      if (lostPlayers.delete(ws.data.id))
-        console.log(`${ws.data.name} was deleted completly`);
-    }, 30000);
+  ws.on('pong', () => {
+    ws.isAlive = true;
+    log.do('spipo', 'Cleint pong');
   });
 });
 
-
-//========================SERVER PINGER========================//
-const pinger = setInterval(() => {
-  server.clients.forEach((client) => {
-    if (!client.isAlive) return console.log(client.name + ' is not responding');
-
+//========================PING CLIENT===========================//
+server.pinger = setInterval(() => {
+  server.clients.forEach(client => {
+    if (!client.isActive) return;
+    if (!client.isAlive) {
+      log.do('spipo', 'Client not respoding');
+      handleDisconnect(client);
+    }
     client.isAlive = false;
-    client.send('__ping__');
+    client.ping()
   });
 }, 10000);
+
+//=======================HANDLE CLIENT==========================//
+const handleClient = (ws, id) => {
+  if (clientBase.has(id) && !lostClients.has(id)) {
+    log.do('sclient', 'Same client opened game in another tab');
+    ws.say('closeThisTab');
+    return;
+  }
+
+  let lostClient = lostClients.get(id);
+  log.do('sclient',
+    `Client id recieved: ${id}. Is client found: ${lostClient !== undefined}`);
+
+  if (lostClient !== undefined) {
+    ws.data = lostClient;
+    lostClients.delete(id);
+
+    if (ws.data.removed)
+      server.sendAllBut('addClient', ws.data.player, ws);
+    else if (ws.data.player.status === 'offline') {
+      ws.data.player.status = ws.data.player.statusBeforeOffline;
+      server.sendAllBut('statusUpdate', 
+        { id: ws.data.player.id, status: ws.data.player.status }, ws);
+    }
+    ws.data.removed = false;
+    clearTimeout(ws.data.timeouts.offline);
+    clearTimeout(ws.data.timeouts.remove);
+    clearTimeout(ws.data.timeouts.delete);
+    log.do('sclient', `Resurrecting old player. ${ws.data.player.name}`);
+  }
+  else {
+    ws.data = {
+      removed: false,
+      player: new Player(uuid.v4(), getName(), getColor()),
+      cards: cardsDB.getNCards(6),
+      timeouts: {},
+    };
+    server.sendAllBut('addClient', ws.data.player, ws);
+    log.do('sclient', `Creating new player ${ws.data.player.id}. ${ws.data.player.name}`);
+  }
+
+  ws.isActive = true;
+  clientBase.set(ws.data.player.id, ws.data);
+
+  ws.say('setup', {
+    players: Array.from(clientBase.values(), client => client.player),
+    cards: ws.data.cards,
+    id: ws.data.player.id,
+    appState,
+  });
+  log.do('sclient');
+}
+//=====================HANDLE DISCONNECT========================//
+const handleDisconnect = (ws) => {
+  lostClients.set(ws.data.player.id, ws.data);
+
+  ws.data.timeouts.offline = setTimeout(() => {
+    server.sendAllBut('statusUpdate', { id: ws.data.player.id, status: 'offline' }, ws);
+    ws.data.player.statusBeforeOffline = ws.data.player.status;
+    ws.data.player.status = 'offline';
+    console.log(ws.data.player.statusBeforeOffline);
+  }, 400);
+
+  ws.data.timeouts.remove = setTimeout(() => { 
+    if (!lostClients.has(ws.data.id)) return;
+    ws.data.removed = true;
+    server.sendAllBut('removeClient', ws.data.player.id, ws);
+    clientBase.delete(ws.data.player.id);
+    log.do('sclient', `Sending reuqest to delete client ${ws.data.player.name}`);
+  }, 10000);
+
+  ws.data.timeouts.delete = setTimeout(() => { 
+    if (!lostClients.delete(ws.data.id)) return;
+    log.do('sclient', `${ws.data.player.name} was deleted completly`);
+  }, 30000);
+}
+
+//==========================SENDERS=============================//
+server.sendAllBut = (type, data, ignoreClient) => {
+  server.clients.forEach(client => {
+    if (client !== ignoreClient && client.isActive) 
+      client.say(type, data);
+  });
+}
+server.sendAll = (type, data) => {
+  server.clients.forEach(client => {
+    if (client.isActive)
+      client.say(type, data)
+  });
+}
+server.sendAllButRaw = (data, ignoreClient) => {
+  server.clients.forEach(client => {
+    if (client !== ignoreClient && client.isActive) 
+      client.send(data);
+  });
+}

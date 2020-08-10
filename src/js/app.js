@@ -9,7 +9,6 @@ class ImApp extends LitElement {
   static get properties() {
     return {
       state: { type: String },
-      players: { type: Array },
       clicker: { type: Boolean },
     };
   }
@@ -20,17 +19,17 @@ class ImApp extends LitElement {
     this.state = 'loading';
     this.stateAfterLoading = 'lobby'; //debug only
     this.api = api; //debug only
-    this.players = [];
     this.apiSetup();
-    this.hostId = localStorage.getItem('myId');
 
     this.clicker = false;
     this.click = () => { this.clicker = !this.clicker }
-    this.loader = setInterval(() => {
-      if (this.host === undefined) return;
-      this.state = this.stateAfterLoading;
-      clearInterval(this.loader);
-    }, 600);
+
+    //this.loader = setInterval(() => {
+      //if (this.host === undefined) return;
+      //this.state = this.stateAfterLoading;
+      //clearInterval(this.loader);
+    //}, 600);
+
   }
 
   render() {
@@ -39,9 +38,7 @@ class ImApp extends LitElement {
         <im-loading></im-loading>
       `;
       case 'lobby': return html`
-        <im-lobby .clicker=${this.clicker}
-        .next=${()=>this.state='game'}
-        ></im-lobby> 
+        <im-lobby .clicker=${this.clicker}></im-lobby> 
       `;
       case 'game': return html`
         <im-game .clicker=${this.clicker}></im-game>
@@ -72,49 +69,23 @@ class ImApp extends LitElement {
     }
   }
 
-  findHost() {
-    this.host = this.players.find(player => player.id === this.hostId);
-    api.host = this.host;
-  }
-
   apiSetup() {
     api.on('newMessage', (msg) => {
       console.log(`message from ${msg.id}: ${msg.data}`);
     });
 
-    api.on('yourId', (data) => { 
-      this.hostId = data;
-      localStorage.setItem('myId', this.hostId);
-    });
-
-    api.on('newClient', (data) => {
-      this.players.push(Player.fromJSON(data));
-      this.click();
-    });
-
-    api.on('removeClient', (data) => {
-      let playerInd = this.players.findIndex(player => player.id === data);
-      let lastInd = this.players.length - 1;
-      this.players[playerInd] = this.players[lastInd];
-      this.players.pop();
-      this.click();
-    });
-
-    api.on('baseUpdate', (data) => { 
-      this.players = data.map(player => Player.fromJSON(player));
-      api.players = this.players;
-      this.findHost();
-    });
-
-    api.on('statusUpdate', (data) => {
-      let player = this.players.find(player => player.id === data.id);
-      player.status = data.status;
-      this.click();
-    });
-
-    api.on('close this tab', () => {
+    api.on('closeThisTab', () => {
       clearInterval(this.loader);
       this.state = 'close tab';
+    });
+
+    api.subscribe('setup ready', (appState) => {
+      this.state = appState;
+      this.click();
+    });
+
+    api.subscribe('update', () => {
+      this.click();
     });
   }
 

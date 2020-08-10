@@ -1,4 +1,6 @@
-export class Api {
+const { Player } = require('./player.js');
+
+class Api {
   constructor() {
     this.handlers = new Map()
     this.tries = 0;
@@ -8,22 +10,35 @@ export class Api {
       this.handlers.get(type).push(handler)
     }
 
+    this.subscriptions = new Map();
+    this.subscribe = (sub, handler) => 
+      this.subscriptions.set(sub, handler);
+    this.unsubscribe = (from) =>
+      this.subscriptions.delete(from);
+    this.publish = (sub, data) => {
+      if (this.subscriptions.has(sub))
+        this.subscriptions.get(sub)(data);
+      else
+        console.log(`'${sub}' subscription is not found`);
+    };
+
+
     this.send = (type, data) =>
       this.ws.send(JSON.stringify({ type, data }));
 
-    this.sendServer = (msg) => this.ws.send(`server ${msg}`);
+    this.sendServer = (type, data) => this.ws.send(`server ${type} ${data}`);
 
     this.conect();
   }
 
   conect() {
-    this.ws = new WebSocket(`ws://192.168.1.67:8081/`);
+    this.ws = new WebSocket(`ws://192.168.8.100:8081/`);
 
     this.ws.onopen = (event) => {
       console.log('WebSocket is open now');
       this.tries = 0;
       clearInterval(this.reconnect);
-      this.sendServer('clientId ' + localStorage.getItem('myId'));
+      this.sendServer('connected', localStorage.getItem('id'));
     }
 
     this.ws.onclose = (event) => {
@@ -47,11 +62,6 @@ export class Api {
     }
 
     this.ws.onmessage = (event) => {
-      if (event.data === '__ping__') {
-        //console.log('ping from server');
-        return this.ws.send('__pong__');
-      }
-
       let data = JSON.parse(event.data);
       if (this.handlers.has(data.type)) 
         this.handlers.get(data.type).forEach(handler => handler(data.data));
@@ -65,6 +75,29 @@ export class Api {
 
 export const api = new Api();
 
-api.on('cards', (data) => {
-  api.hostCards = data;
+api.on('setup', (data) => {
+  api.players = data.players.map(pl => Player.fromJSON(pl));
+  api.host = api.players.find(pl => pl.id === data.id);
+  api.host.cards = data.cards;
+  localStorage.setItem('id', data.id);
+  api.publish('setup ready', data.appState);
+});
+
+api.on('statusUpdate', (data) => {
+  let player = api.players.find(pl => pl.id === data.id);
+  player.status = data.status;
+  api.publish('update');
+});
+
+api.on('addClient', (player) => {
+  api.players.push(Player.fromJSON(player));
+  api.publish('update');
+});
+
+api.on('removeClient', (id) => {
+  let playerInd = api.players.findIndex(pl => pl.id === id);
+  let lastInd = api.players.length - 1;
+  api.players[playerInd] = api.players[lastInd];
+  api.players.pop();
+  api.publish('update');
 });
