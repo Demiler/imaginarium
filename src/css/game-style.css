@@ -221,7 +221,7 @@
   transform: rotateY(360deg) scale(0.2);
 }
 
-.cards-container .card.waiting img {
+.cards-container .card.waiting-for-others img {
   opacity: 1;
   transition: 1.5s;
   transform: rotateY(0) scale(1);

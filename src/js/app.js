@@ -75,8 +75,11 @@ class ImApp extends LitElement {
     });
 
     api.on('closeThisTab', () => {
-      clearInterval(this.loader);
       this.state = 'close tab';
+    });
+
+    api.on('appUpdate', (state) => {
+      this.state = state;
     });
 
     api.subscribe('setup ready', (appState) => {

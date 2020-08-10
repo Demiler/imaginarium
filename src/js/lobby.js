@@ -61,7 +61,7 @@ class Lobby extends LitElement {
 
   readyButton() {
     api.host.status = api.host.status === 'ready' ? 'not-ready' : 'ready';
-    api.sendServer('statusUpdate', api.host.status);
+    api.sendServer('lobbyUpdate', api.host.status);
     this.requestUpdate();
   }
 

@@ -19,6 +19,7 @@ class Popup extends LitElement {
 
   render() {
     if (!this.renderedOnce) {
+      this.time = 0; //delete after debug
       this.renderedOnce = true;
       setTimeout(() => {
         this.display = 'show';

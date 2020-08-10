@@ -19,8 +19,39 @@ const server = new WebSocket.Server({
 
 let clientBase = new Map();
 let lostClients = new Map();
-let appState = 'lobby';
+let app = {
+  state: 'lobby',
+  leader: -1,
+  leaderGuess: '',
+  newTurn() {
+    server.sendAll('newTurn', {
+      leader: ++this.leader,
+      addCard: 'card',
+      removeCard: 'cArd',
+    });
+  }
+}
 
+clientBase.every = (cb) => {
+  for (let [id, client] of clientBase)
+    if (!cb(client)) return false;
+  return true;
+}
+
+clientBase.some = (cb) => {
+  for (let [id, client] of clientBase)
+    if (cb(client)) return true;
+  return false;
+}
+
+clientBase.updateEveryoneStatus = (status) => {
+ clientBase.forEach(client => {
+  if (client.player.status === 'offline')
+    client.player.statusBeforeOffline = status;
+  else
+    client.player.status = status;
+  });
+}
 //==========================HANDLERS============================//
 server.handlers = new Map();
 server.handleRequest = (ws, data) => {
@@ -30,10 +61,33 @@ server.handleRequest = (ws, data) => {
   log.do('shandler', `Received handler '${type}' with '${msg}'`);
 
   if (handler) handler(ws, msg);
-  else log.do('serror', `handler '${type}' not found`);
+  else log.do('serror', `Handler '${type}' not found`);
 }
 
 server.handlers.set('connected', (ws, id) => handleClient(ws, id));
+
+server.handlers.set('lobbyUpdate', (ws, status) => {
+  server.updateClientStatus(ws, status);
+  if (clientBase.every(cl => cl.player.status === 'ready')) {
+    app.state = 'game';
+    server.sendAll('allStatusUpdate', 'waiting-for-leader');
+    server.sendAll('appUpdate', app.state);
+    clientBase.updateEveryoneStatus('waiting-for-leader');
+    app.newTurn();
+  }
+});
+
+server.handlers.set('statusUpdate', (ws, status) => {
+  server.updateClientStatus(ws, status);
+});
+
+server.handlers.set('leaderGuess', (ws, guess) => {
+  app.leaderGuess = guess;
+  server.sendAllBut('leaderGuess', guess, ws);
+  clientBase.updateEveryoneStatus('picking');
+  server.sendAll('allStatusUpdate', 'picking');
+  server.updateClientStatus(ws, 'waiting-for-others');
+});
 
 server.handlers.set('IWantNewColor', (ws) => {
   ws.data.player.color = getColor();
@@ -94,18 +148,18 @@ const handleClient = (ws, id) => {
   if (lostClient !== undefined) {
     ws.data = lostClient;
     lostClients.delete(id);
-
-    if (ws.data.removed)
-      server.sendAllBut('addClient', ws.data.player, ws);
-    else if (ws.data.player.status === 'offline') {
-      ws.data.player.status = ws.data.player.statusBeforeOffline;
-      server.sendAllBut('statusUpdate', 
-        { id: ws.data.player.id, status: ws.data.player.status }, ws);
-    }
-    ws.data.removed = false;
     clearTimeout(ws.data.timeouts.offline);
     clearTimeout(ws.data.timeouts.remove);
     clearTimeout(ws.data.timeouts.delete);
+
+    if (ws.data.removed) {
+      ws.data.player.status = ws.data.player.statusBeforeOffline;
+      server.sendAllBut('addClient', ws.data.player, ws);
+    }
+    else if (ws.data.player.status === 'offline')
+      server.updateClientStatus(ws, ws.data.player.statusBeforeOffline);
+    
+    ws.data.removed = false;
     log.do('sclient', `Resurrecting old player. ${ws.data.player.name}`);
   }
   else {
@@ -123,10 +177,12 @@ const handleClient = (ws, id) => {
   clientBase.set(ws.data.player.id, ws.data);
 
   ws.say('setup', {
-    players: Array.from(clientBase.values(), client => client.player),
-    cards: ws.data.cards,
-    id: ws.data.player.id,
-    appState,
+    players:      Array.from(clientBase.values(), client => client.player),
+    cards:        ws.data.cards,
+    id:           ws.data.player.id,
+    appState:     app.state,
+    leader:       app.leader,
+    leaderGuess:  app.leaderGuess,
   });
   log.do('sclient');
 }
@@ -135,14 +191,12 @@ const handleDisconnect = (ws) => {
   lostClients.set(ws.data.player.id, ws.data);
 
   ws.data.timeouts.offline = setTimeout(() => {
-    server.sendAllBut('statusUpdate', { id: ws.data.player.id, status: 'offline' }, ws);
     ws.data.player.statusBeforeOffline = ws.data.player.status;
-    ws.data.player.status = 'offline';
-    console.log(ws.data.player.statusBeforeOffline);
+    server.updateClientStatus(ws, 'offline');
   }, 400);
 
   ws.data.timeouts.remove = setTimeout(() => { 
-    if (!lostClients.has(ws.data.id)) return;
+    if (!lostClients.has(ws.data.player.id)) return;
     ws.data.removed = true;
     server.sendAllBut('removeClient', ws.data.player.id, ws);
     clientBase.delete(ws.data.player.id);
@@ -150,7 +204,7 @@ const handleDisconnect = (ws) => {
   }, 10000);
 
   ws.data.timeouts.delete = setTimeout(() => { 
-    if (!lostClients.delete(ws.data.id)) return;
+    if (!lostClients.delete(ws.data.player.id)) return;
     log.do('sclient', `${ws.data.player.name} was deleted completly`);
   }, 30000);
 }
@@ -162,15 +216,25 @@ server.sendAllBut = (type, data, ignoreClient) => {
       client.say(type, data);
   });
 }
+
 server.sendAll = (type, data) => {
   server.clients.forEach(client => {
     if (client.isActive)
       client.say(type, data)
   });
 }
+
 server.sendAllButRaw = (data, ignoreClient) => {
   server.clients.forEach(client => {
     if (client !== ignoreClient && client.isActive) 
       client.send(data);
   });
+}
+
+server.updateClientStatus = (ws, status = ws.data.player.status) => {
+  ws.data.player.status = status;
+  server.sendAllBut('statusUpdate', {
+    id: ws.data.player.id,
+    status,
+  }, ws);
 }

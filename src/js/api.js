@@ -32,7 +32,7 @@ class Api {
   }
 
   conect() {
-    this.ws = new WebSocket(`ws://192.168.8.100:8081/`);
+    this.ws = new WebSocket(`ws://192.168.1.67:8081/`);
 
     this.ws.onopen = (event) => {
       console.log('WebSocket is open now');
@@ -79,8 +79,17 @@ api.on('setup', (data) => {
   api.players = data.players.map(pl => Player.fromJSON(pl));
   api.host = api.players.find(pl => pl.id === data.id);
   api.host.cards = data.cards;
+  api.leader = api.players[data.leader];
+  if (api.leader)
+    api.leader.guess = data.leaderGuess;
   localStorage.setItem('id', data.id);
   api.publish('setup ready', data.appState);
+
+  api.host.updateStatus = (newStatus) => {
+    api.host.status = newStatus;
+    api.sendServer('statusUpdate', newStatus);      
+    api.publish('update');
+  };
 });
 
 api.on('statusUpdate', (data) => {
@@ -99,5 +108,13 @@ api.on('removeClient', (id) => {
   let lastInd = api.players.length - 1;
   api.players[playerInd] = api.players[lastInd];
   api.players.pop();
+  api.publish('update');
+});
+
+api.on('allStatusUpdate', (status) => {
+  api.players.forEach(player => {
+    if (player.status !== 'offline')
+      player.status = status;
+  });
   api.publish('update');
 });
