@@ -144,3 +144,12 @@ api.on('gameInit', (data) => {
 
   api.publish('game');
 });
+
+api.on('updateScore', (data) => {
+  data.forEach(pl => {
+    api.players
+      .find(player => player.id === pl.id)
+      .score = pl.score;
+  });
+  api.publish('update');
+});

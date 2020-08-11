@@ -115,10 +115,15 @@ class Game extends LitElement {
   }
 
   initNewTurn(data) {
+    console.log(data);
+    api.host.cards[
+      api.host.cards
+      .findIndex(card => card.path === data.removeCard)
+    ] = data.addCard;
     this.leader = api.players[data.leader];
     this.everyonesCards = [];
     this.leader.guess = '';
-    api.choosenCard = undefined;
+    api.host.choosenCard = undefined;
     this.state = this.leader === api.host ? 'leader guessing' : 'waiting for leader';
     this.send = false;
     this.requestUpdate();

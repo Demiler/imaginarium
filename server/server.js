@@ -133,14 +133,18 @@ server.handlers.set('guessedCard', (ws, guessedCard) => {
         card: { path: cl.choosenCard },
         players: [], 
       }
-      clientBase.forEach(cl => {
-        if (cl.guessedCard === choose.card.path)
-          choose.players.push(cl.player);
+      clientBase.forEach(cll => {
+        if (cll.guessedCard === choose.card.path)
+          choose.players.push(cll.player);
       });
+      cl.player.score += choose.players.length;
       return choose;
     });
     server.sendAll('turnResults', app.turnCards);
-    setTimeout(() => app.newTurn(), 10000);
+    server.sendAll('updateScore', Array.from(clientBase.values(), 
+      cl => cl.player
+    ));
+    setTimeout(() => app.newTurn(), 5500);
   }
 });
 
