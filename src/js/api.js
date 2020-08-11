@@ -79,9 +79,18 @@ api.on('setup', (data) => {
   api.players = data.players.map(pl => Player.fromJSON(pl));
   api.host = api.players.find(pl => pl.id === data.id);
   api.host.cards = data.cards;
-  api.leader = api.players[data.leader];
-  if (api.leader)
+
+  if (data.appState === 'game') {
+    data.order.sort((a, b) => {
+      if (a > b) 
+        [api.players[b], api.players[a]] =
+        [api.players[a], api.players[b]];
+      return a > b;
+    });
+
+    api.leader = api.players[data.leader];
     api.leader.guess = data.leaderGuess;
+  }
   localStorage.setItem('id', data.id);
   api.publish('setup ready', data.appState);
 
@@ -117,4 +126,21 @@ api.on('allStatusUpdate', (status) => {
       player.status = status;
   });
   api.publish('update');
+});
+
+api.on('gameInit', (data) => {
+  data.order.sort((a, b) => {
+    if (a > b) 
+      [api.players[b], api.players[a]] =
+      [api.players[a], api.players[b]];
+    return a > b;
+  });
+  api.leader = api.players[data.leader];
+  api.leader.guess = '';
+  api.host.cards = data.cards;
+  api.players.forEach(pl => pl.status = 'waiting-for-leader');
+  if (api.leader.id === api.host.id)
+    api.host.updateStatus('guessing');
+
+  api.publish('game');
 });

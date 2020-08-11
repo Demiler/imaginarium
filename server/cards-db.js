@@ -34,7 +34,7 @@ class CardsDB {
   constructor() {
     this.cards = [];
     this.last = 0;
-    this.dir = '../img/cards/';
+    this.dir = './img/cards/';
     this.dbfile = './db-info.json';
     this.loadDataBase();
   }

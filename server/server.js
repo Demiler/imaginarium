@@ -1,17 +1,17 @@
 const WebSocket = require('ws');
 const uuid = require('uuid');
-const { mmdt } = require('./send');
 const { log } = require('./logger.js');
 const { Player }  = require('../src/js/player.js');
 const { getName } = require('../src/js/utils/names.js');
 const { getColor } = require('../src/js/utils/colors.js');
 const { cardsDB } = require('./cards-db.js');
+const { shuffle } = require('./shuffle.js');
 
 //============================LOGS==============================//
 log.setLog('spipo', false);
 log.setLog('serror', true);
 log.setLog('sclient', true);
-log.setLog('shandler', false);
+log.setLog('shandler', true);
 //===========================CONFIG=============================//
 const server = new WebSocket.Server({
   port: 8081,
@@ -19,27 +19,15 @@ const server = new WebSocket.Server({
 
 let clientBase = new Map();
 let lostClients = new Map();
-let app = {
-  state: 'lobby',
-  leader: -1,
-  leaderGuess: '',
-  newTurn() {
-    server.sendAll('newTurn', {
-      leader: ++this.leader,
-      addCard: 'card',
-      removeCard: 'cArd',
-    });
-  }
-}
 
 clientBase.every = (cb) => {
-  for (let [id, client] of clientBase)
+  for (let [, client] of clientBase)
     if (!cb(client)) return false;
   return true;
 }
 
 clientBase.some = (cb) => {
-  for (let [id, client] of clientBase)
+  for (let [, client] of clientBase)
     if (cb(client)) return true;
   return false;
 }
@@ -51,6 +39,46 @@ clientBase.updateEveryoneStatus = (status) => {
   else
     client.player.status = status;
   });
+}
+//============================APP===============================//
+let app = {
+  state: 'lobby',
+  leader: 0,
+  leaderGuess: '',
+  order: [],
+  cards: [],
+  readyPlayers: 0,
+
+  newTurn() {
+    app.readyPlayers = 0;
+    app.cards = [];
+    app.leader = (app.leader + 1) % clientBase.size;
+    app.leaderGuess = '';
+    let newCards = cardsDB.getNCards(clientBase.size);
+    server.clients.forEach(ws => {
+      ws.say('newTurn', {
+        leader: app.leader,
+        addCard: newCards.pop(),
+        removeCard: ws.data.choosenCard,
+      });
+      ws.data.choosenCard = undefined;
+    });
+  },
+
+  initGame() {
+    app.state = 'game';
+    app.order = shuffle(Array.from(Array(clientBase.size).keys()));
+    server.clients.forEach(ws => {
+      ws.data.cards = cardsDB.getNCards(6);
+      ws.say('gameInit', {
+        order: app.order,
+        leader: app.leader,
+        cards: ws.data.cards,
+      });
+    });
+    clientBase.updateEveryoneStatus('waiting-for-leader');
+  }
+ 
 }
 //==========================HANDLERS============================//
 server.handlers = new Map();
@@ -68,13 +96,8 @@ server.handlers.set('connected', (ws, id) => handleClient(ws, id));
 
 server.handlers.set('lobbyUpdate', (ws, status) => {
   server.updateClientStatus(ws, status);
-  if (clientBase.every(cl => cl.player.status === 'ready')) {
-    app.state = 'game';
-    server.sendAll('allStatusUpdate', 'waiting-for-leader');
-    server.sendAll('appUpdate', app.state);
-    clientBase.updateEveryoneStatus('waiting-for-leader');
-    app.newTurn();
-  }
+  if (clientBase.every(cl => cl.player.status === 'ready')) 
+    app.initGame();
 });
 
 server.handlers.set('statusUpdate', (ws, status) => {
@@ -87,6 +110,43 @@ server.handlers.set('leaderGuess', (ws, guess) => {
   clientBase.updateEveryoneStatus('picking');
   server.sendAll('allStatusUpdate', 'picking');
   server.updateClientStatus(ws, 'waiting-for-others');
+});
+
+server.handlers.set('choosenCard', (ws, choosenCard) => {
+  ws.data.choosenCard = choosenCard;
+  if (clientBase.every(cl => cl.choosenCard !== undefined)) {
+    app.cards = Array.from(clientBase.values(), cl => { return {path: cl.choosenCard} } );
+    clientBase.updateEveryoneStatus('thinkig');
+    server.sendAll('guessLeaderCard', app.cards);
+  }
+});
+
+server.handlers.set('guessedCard', (ws, guessedCard) => {
+  if (ws.data.guessedCard === undefined)
+    app.readyPlayers++;
+  ws.data.guessedCard = guessedCard;
+
+  if (app.readyPlayers + 1 === clientBase.size) {
+    app.turnCards = Array.from(clientBase.values(), cl => {
+      let choose = {
+        owner: cl.player,
+        card: { path: cl.choosenCard },
+        players: [], 
+      }
+      clientBase.forEach(cl => {
+        if (cl.guessedCard === choose.card.path)
+          choose.players.push(cl.player);
+      });
+      return choose;
+    });
+    server.sendAll('turnResults', app.turnCards);
+    setTimeout(() => app.newTurn(), 10000);
+  }
+});
+
+server.handlers.set('removeCard', (ws) => {
+  ws.data.guessedCard = undefined;
+  app.readyPlayers--;
 });
 
 server.handlers.set('IWantNewColor', (ws) => {
@@ -166,7 +226,7 @@ const handleClient = (ws, id) => {
     ws.data = {
       removed: false,
       player: new Player(uuid.v4(), getName(), getColor()),
-      cards: cardsDB.getNCards(6),
+      cards: [],
       timeouts: {},
     };
     server.sendAllBut('addClient', ws.data.player, ws);
@@ -183,6 +243,7 @@ const handleClient = (ws, id) => {
     appState:     app.state,
     leader:       app.leader,
     leaderGuess:  app.leaderGuess,
+    order:        app.order,
   });
   log.do('sclient');
 }

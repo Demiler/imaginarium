@@ -6,7 +6,8 @@
   "scripts": {
     "build": "webpack --config webpack.prod.js",
     "dev": "webpack-dev-server --config webpack.dev.js",
-    "dev:public": "npm run dev -- --host 0.0.0.0 --public"
+    "dev:public": "npm run dev -- --host 0.0.0.0 --public",
+    "server": "nodemon --exec \"eslint ./server/server.js && node ./server/server.js\""
   },
   "author": "",
   "license": "ISC",

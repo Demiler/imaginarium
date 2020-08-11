@@ -89,6 +89,10 @@ class ImApp extends LitElement {
     api.subscribe('update', () => {
       this.click();
     });
+
+    api.subscribe('game', () => {
+      this.state = 'game';
+    });
   }
 
   createRenderRoot() { return this }
