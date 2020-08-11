@@ -1,9 +1,8 @@
 import { LitElement, html } from 'lit-element'
-import { Lobby } from './lobby.js'
-import { Game } from './game.js'
-import { Loading } from './loading.js'
+import './lobby.js'
+import './game.js'
+import './loading.js'
 import { api } from './api.js'
-const { Player } = require('./player.js');
 
 class ImApp extends LitElement {
   static get properties() {

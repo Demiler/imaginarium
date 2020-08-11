@@ -34,14 +34,14 @@ class Api {
   conect() {
     this.ws = new WebSocket(`ws://192.168.1.67:8081/`);
 
-    this.ws.onopen = (event) => {
+    this.ws.onopen = () => {
       console.log('WebSocket is open now');
       this.tries = 0;
       clearInterval(this.reconnect);
       this.sendServer('connected', localStorage.getItem('id'));
     }
 
-    this.ws.onclose = (event) => {
+    this.ws.onclose = () => {
       console.log('WebSocket is closed now');
       this.reconnect = setInterval(() => {
         if (this.tries < 3) {
@@ -56,7 +56,7 @@ class Api {
       }, 1000);
     }
 
-    this.ws.onerror = (event) => {
+    this.ws.onerror = () => {
       console.log('Some sort of error in WebSocket');
       clearInterval(this.reconnect);
     }

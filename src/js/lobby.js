@@ -2,7 +2,6 @@ import { LitElement, html } from 'lit-element'
 import '../css/lobby-style.css'
 import { api } from './api';
 
-const imgPath = '../../img';
 const avPath = '../../img/avatars';
 
 class Lobby extends LitElement {

@@ -1,13 +1,10 @@
 import { LitElement, html } from 'lit-element'
-import { Popup } from './popup.js'
+import './popup.js'
 import { api } from './api.js'
 import { sleep } from './utils/sleep.js'
 import '../css/game-style.css'
 
 const cardsPath = '../../img/cards';
-const getRandomCards = () => {
-  return ['card0.jpeg', 'card1.jpeg', 'card2.jpeg', 'card3.jpeg', 'card4.jpeg'];
-}
 
 class Game extends LitElement {
   static get properties() {
@@ -86,7 +83,7 @@ class Game extends LitElement {
     }
   }
 
-  onStateCheck(data) {
+  onStateCheck() {
     this.click();
   }
 
@@ -254,8 +251,8 @@ class Game extends LitElement {
 
   drawGuessingLeaderCard() {
     return html`
-      ${this.leader.id !== api.host.id ? html
-      `<im-popup .time=${2500} .text=${"Guess what leader thought"}></im-popup>`
+      ${this.leader.id !== api.host.id ? html`
+      <im-popup .time=${2500} .text=${"Guess what leader thought"}></im-popup>`
       : html``}
       <div class='game-container'>
         ${this.drawSidebar()}

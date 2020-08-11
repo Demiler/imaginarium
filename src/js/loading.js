@@ -1,5 +1,4 @@
 import { LitElement, html } from 'lit-element'
-import { api } from './api.js'
 import '../css/loading-style.css'
 
 class Loading extends LitElement {

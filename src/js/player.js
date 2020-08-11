@@ -45,7 +45,7 @@ class Player {
       data.icon, 
       data.status, 
       data.score
-  )};
+  )}
 }
 
 module.exports = { Player };
