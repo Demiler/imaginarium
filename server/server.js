@@ -8,6 +8,16 @@ const { cardsDB } = require('./cards-db.js');
 const { shuffle } = require('./shuffle.js');
 const { clientArray } = require('./client-array.js');
 
+
+//==========================STATIC FILES========================//
+const fastify = require('fastify')()
+const path = require('path')
+
+fastify.register(require('fastify-static'), {
+  root: path.join(__dirname, 'public'),
+  prefix: '/build/', // optional: default '/'
+})
+
 //============================LOGS==============================//
 log.setLog('spipo', false);
 log.setLog('serror', true);
