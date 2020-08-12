@@ -1,0 +1,268 @@
+<!doctype html>
+<html>
+<head>
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-111172915-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-111172915-1');
+  
+  var price_kick = 1000;
+</script>
+
+
+<meta charset="utf-8">
+<meta name="verify-admitad" content="acb308ca5a" />
+	<meta name="description" content="dixit-online (имаджинариум онлайн), онлайн игра по мотивам настольной игры диксит (имаджинариум)">
+	<meta name="keywords" content="dixit online,диксит онлайн,имаджинариум онлайн">
+<meta property="og:image" content="http://dixit-online.ru/images/cat2.png" />
+
+
+<title>MIX-game.ru - онлайн игра по мотивам настольной игры dixit / имаджинариум </title>
+<link rel="icon" href="images/fav.jpg" type="image/jpeg">
+<link rel="stylesheet" href="css/style.css?v=0.071591435371">
+<link rel="stylesheet" href="css/jquery.jscrollpane.css">
+<link rel="stylesheet" href="css/humanity/jquery-ui-1.10.4.custom.min.css">
+<link href='https://fonts.googleapis.com/css?family=Roboto:100&subset=latin,cyrillic' rel='stylesheet' type='text/css'>
+
+<script type="text/javascript" src="//imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
+
+<script src="js/jquery.js"></script>
+<script src="js/jquery-ui-1.10.4.custom.min.js"></script>
+<script src="js/jquery.mousewheel.js"></script>
+<script src="js/jquery.jscrollpane.min.js"></script>
+			<script src="js/functions.js"></script>
+			<script src="js/button_binds.js"></script>
+			<script src="js/images.js"></script>
+	
+</head>
+<body >
+
+<div class="content">
+<div class="menu">
+	<ul>
+		<li class="top_menu"><a href="index.php" >Главная</a></li>
+		<li class="top_drop top_menu"><a href="#">Игра</a>
+			<ul>
+				<li><a href="upload.php" >Загрузить карты</a></li>
+				<li><a href="coins.php" >Про монеты</a></li>
+				<li><a href="about.php" >Правила</a></li>
+				<li><a href="help.php" >Помощь</a></li>
+			</ul>
+		</li>
+		
+						<li class="top_menu"><a href="games.php" >Играть</a></li>
+		<li class="top_menu"><a href="/m/" >Мобильная версия</a></li>
+		<li class="top_drop top_menu"><a href="#">Топ 10</a>
+			<ul>
+				<li ><a href="top_gamers.php" >Топ игроков</a></li>
+				<li ><a href="top_cards.php" >Топ карт</a></li>
+			</ul>
+		</li>
+		
+					<li class="vk top_menu"><div><a href="http://vk.com/dixit_online" target="_blank"><img src="images/vk_icon.png"></a></div></li>
+			</ul>
+	
+</div>
+
+	<div class="house">
+		<div class="cat"></div>
+		<div class="login">
+			<div class="log_head non_auth" ><a href="#" id="login_butt"><b>Вход</b></a></div>
+			<div class="forgot_password non_auth" ><a href="#">Забыли пароль?</a></div>
+			<div class="register non_auth" ><a href="#">Регистрация</a></div>
+			<div class="hello_user auth" style="display:none;"><b>Приветствуем</b>,<br><span>Гость</span></div>
+			<a class="exit_butt auth" style="display:none;" href="logout.php">Выход</a>
+		</div>
+		<div class="login_fields">
+			<form id="login_form" class="non_auth" >
+				<input type="text" placeholder="Логин" name="login" id="login" autocomplete="off">
+				<input type="password" placeholder="Пароль" name="pass" id="pass">
+				<div id="rem_me">
+					<input type="checkbox" name="remember_me" id="remember_me" value="Y"> <label for="remember_me">Запомнить меня</label>
+				</div>
+			</form>
+			<a class="play_button auth" style="display:none;" href="games.php"></a>
+		</div>
+		<div class="socs">
+			<div id="shadow"></div>
+			<div id="soc_enter">Вход <br> через соц. сети</div>
+			<a href="#" class="vk"><div id="vk"></div></a>
+			<a href="#" class="fb"><div id="fb"></div></a>
+		</div>
+		<div class="news">
+			<div class="news_content">
+			 <h1 style="text-align:center;color:#3b5a9b;font-size:32px;"><span class="d">MIX</span><span>-game</span> / Диксит (имаджинариум) онлайн</h1>
+			 <p><b><a href="http://mix-game.ru"><b>mix-game.ru</b></a></b> это онлайн игра созданная под впечатлением настольных игр "Dixit" 
+			 и "Имаджинариум". Наша игра включает в себя более 4000 карт, коллекция которых пополняется каждый день нашими игроками. 
+			 
+						
+			</p>
+			<p><br><a href="help.php#avtor">Правообладателям изображений</a></p>
+			</div>
+		</div>
+	</div>
+	<div class="popup_fon"> </div>
+	<div class="popup_reg_window popup">
+		<a href="#" id="close_popup"><img src="images/close_btn.png"></a>
+		
+		<h3>Регистрация в <span class="d">Dixit</span><span>-online</span></h3>
+		<form id="registration_form">
+		
+		<label for="reg_login">Логин</label>
+		<input type="text" id="reg_login" name="reg_login"><br>
+		
+		<label for="reg_pass">Пароль</label>
+		<input type="text" id="reg_pass" name="reg_pass"><br>
+		
+		<label for="reg_email">Ваш e-mail</label>
+		<input type="text" id="reg_email" name="reg_email"><br>
+		
+		Нажимая кнопку "OK" Вы соглашаетесь с <a href="policy.php" target="_blank">политикой конфиденциальности</a>
+		
+				
+		</form>
+		
+		<a href="#" id="send_register" class="ok_butt"><img src="images/ok_butt.png"></a>
+	</div>
+	<div class="forgot_pass popup">
+		<a href="#" class="close_btn"><img src="images/close_btn.png"></a>
+		
+		<br><br>
+		<h3>Востановление пароля </h3>
+		<form id="forgot_pass_form">
+		
+		<br><br><label for="fp_email">Ваш e-mail</label>
+		<input type="text" id="fp_email" name="fp_email"><br>
+		
+		</form>
+		
+		<a href="#" id="send_fp" class="ok_butt"><img src="images/ok_butt.png"></a>
+	</div>
+	
+	<div class="popup_message_window popup">
+		<a href="#" id="close_popup_message"><img src="images/close_btn.png"></a>
+		<div></div>
+		<a href="#" id="ok_message" class="ok_butt"><img src="images/ok_butt.png"></a>
+		<input type="hidden" id="showSelectorOnHideMessage" value="">
+	</div>
+	
+	<div class="kick_vote popup">
+		<div class="vote_txt">Выгнать кого-то ???</div>
+		<a href="#" id="" class="butt vote_yes" data-result="Y">ДА</a>
+		<a href="#" id="" class="butt vote_no" data-result="N">НЕТ</a>
+	</div>
+	
+	<div class="popup_ava popup">
+		<a href="#" class="close_btn"><img src="images/close_btn.png"></a>
+		<div><br><h3>Обновите аватар</h3>
+		<form id="ava_form" method="POST" enctype="multipart/form-data" action="ava_upload.php?game_id=0">
+			<input type="file" id="ava_file" name="ava_file" style="position:absolute;top:0;left:-9999px;" accept="image/*">
+		</form>
+		</div>
+		<a href="#" id="ok_ava" class="ok_butt"><img src="images/ok_butt.png"></a>
+	</div>
+	
+	<div class="popup_new_foto_vote popup">
+		
+			<h3>Оцените карту</h3>
+		
+			<div id="n_f_v">
+				<img src="" id="new_foto_vote"> 
+			</div>
+			
+			<input type="hidden" id="new_card_id_to_vote" value="0">
+			
+			<div class="card_likes">
+				<a href="#" class="card_up"><img src="images/up.png"></a>
+				<a href="#" class="card_down"><img src="images/down.png"></a> 
+			</div>
+			
+	</div>
+	<div class="popup_foto popup">
+		
+			<div id="f">
+				<a href="#" class="close_btn"><img src="images/close_btn.png"></a>
+				<img src="" id="foto"> 
+				<div class="ok_sel"><a href="#"><img src="images/ok.png"></a></div>
+			</div>
+			<a href="#" class="foto_page" target="_blank"></a>
+			<a href="#" class="next"></a>
+			<a href="#" class="prev"></a>
+	</div>
+	<div class="popup_foto_table popup">
+		
+			<div id="f_t">
+				<a href="#" class="close_btn"><img src="images/close_btn.png"></a>
+				<img src="../alpha/cards-png/005_.png" id="foto_t"> 
+				<div class="ok_sel"><a href="#"><img src="images/ok.png"></a></div>
+			</div>
+			<a href="#" class="foto_page" target="_blank"></a>
+			<a href="#" class="next"></a>
+			<a href="#" class="prev"></a>
+	</div>
+	
+	<div class="popup new_game">
+		<a href="#" class="close_btn"><img src="images/close_btn.png"></a>
+		<h3>-Создание новой игры-</h3>
+		<table>
+			<tr>
+				<td>Тема игры:</td>
+				<td><input type="text" name="title" value="Любая"></td>
+			</tr>
+			<tr>
+				<td>Лимит очков:</td>
+				<td><input type="text" name="score" value="30"></td>
+			</tr>
+			<tr>
+				<td>Автовыход через:</td>
+				<td><input type="text" name="autoexit" value="120"></td>
+			</tr>
+			<tr>
+				<td>Максимально игроков:</td>
+				<td><input type="text" name="max_gamers" value="12"></td>
+			</tr>
+			<tr>
+				<td>Разрешить вход после старта игры:</td>
+				<td><input type="checkbox" id="in_game" name="in_game" value="Y" checked> <label for="in_game"></label></td>
+			</tr>
+		</table>
+		
+		<a href="#" id="start_game" class="ok_butt"> </a>
+	</div>
+	
+	</div> <!-- Yandex.Metrika counter -->
+<script type="text/javascript" >
+    (function (d, w, c) {
+        (w[c] = w[c] || []).push(function() {
+            try {
+                w.yaCounter35034345 = new Ya.Metrika({
+                    id:35034345,
+                    clickmap:true,
+                    trackLinks:true,
+                    accurateTrackBounce:true,
+                    webvisor:true
+                });
+            } catch(e) { }
+        });
+
+        var n = d.getElementsByTagName("script")[0],
+            s = d.createElement("script"),
+            f = function () { n.parentNode.insertBefore(s, n); };
+        s.type = "text/javascript";
+        s.async = true;
+        s.src = "https://mc.yandex.ru/metrika/watch.js";
+
+        if (w.opera == "[object Opera]") {
+            d.addEventListener("DOMContentLoaded", f, false);
+        } else { f(); }
+    })(document, window, "yandex_metrika_callbacks");
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/35034345" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
+
+</body>
+</html>
