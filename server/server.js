@@ -27,7 +27,7 @@ const server = http.createServer(function onRequest (req, res) {
 //server.listen(3000)
 
 const wss = new WebSocket.Server({ server });
-server.listen(8081);
+server.listen(process.env.PORT || 8081);
 
 //===========================CONFIG=============================//
 
