@@ -6,6 +6,7 @@ const { getName } = require('../src/js/utils/names.js');
 const { getColor } = require('../src/js/utils/colors.js');
 const { cardsDB } = require('./cards-db.js');
 const { shuffle } = require('./shuffle.js');
+const { clientArray } = require('./client-array.js');
 
 //============================LOGS==============================//
 log.setLog('spipo', false);
@@ -17,73 +18,67 @@ const server = new WebSocket.Server({
   port: 8081,
 });
 
-let clientBase = new Map();
+let clientBase = new clientArray();
 let lostClients = new Map();
 
-clientBase.every = (cb) => {
-  for (let [, client] of clientBase)
-    if (!cb(client)) return false;
-  return true;
-}
-
-clientBase.some = (cb) => {
-  for (let [, client] of clientBase)
-    if (cb(client)) return true;
-  return false;
-}
-
-clientBase.updateEveryoneStatus = (status) => {
+clientBase.updateEveryoneStatus = (status, leaderStatus) => {
  clientBase.forEach(client => {
   if (client.player.status === 'offline')
     client.player.statusBeforeOffline = status;
   else
     client.player.status = status;
   });
+  if (leaderStatus) app.leader.player.status = leaderStatus;
 }
 //============================APP===============================//
 let app = {
   state: 'lobby',
-  leader: 0,
+  leader: {},
+  leaderId: 0,
   leaderGuess: '',
-  order: [],
   cards: [],
   readyPlayers: 0,
 
   newTurn() {
     app.readyPlayers = 0;
     app.cards = [];
-    app.leader = (app.leader + 1) % clientBase.size;
+    app.leaderId = (app.leaderId + 1) % clientBase.length;
+    app.leader = clientBase[app.leaderId];
     app.leaderGuess = '';
-    let newCards = cardsDB.getNCards(clientBase.size);
+    let newCards = cardsDB.getNCards(clientBase.length);
     server.clients.forEach(ws => {
       ws.say('newTurn', {
-        leader: app.leader,
+        leader: app.leaderId,
         addCard: newCards.pop(),
         removeCard: ws.data.choosenCard,
       });
       ws.data.choosenCard = undefined;
+      ws.data.guessedCard = undefined;
     });
+    clientBase.updateEveryoneStatus('waiting-for-leader', 'guessing');
   },
 
   initGame() {
     app.state = 'game';
-    app.order = shuffle(Array.from(Array(clientBase.size).keys()));
+    shuffle(clientBase);
+    app.leader = clientBase[app.leaderId];
+    clientBase.updateEveryoneStatus('waiting-for-leader', 'guessing');
     server.clients.forEach(ws => {
       ws.data.cards = cardsDB.getNCards(6);
       ws.say('gameInit', {
-        order: app.order,
-        leader: app.leader,
+        id: ws.data.player.id,
+        order: clientBase,
+        leader: app.leaderId,
         cards: ws.data.cards,
       });
     });
-    clientBase.updateEveryoneStatus('waiting-for-leader');
   }
  
 }
 //==========================HANDLERS============================//
 server.handlers = new Map();
 server.handleRequest = (ws, data) => {
-  const type = data.split(' ')[0]; 
+  const [ type ] = data.split(' ');
   const msg = data.substr(type.length + 1);
   const handler = server.handlers.get(type);
   log.do('shandler', `Received handler '${type}' with '${msg}'`);
@@ -107,50 +102,63 @@ server.handlers.set('statusUpdate', (ws, status) => {
 server.handlers.set('leaderGuess', (ws, guess) => {
   app.leaderGuess = guess;
   server.sendAllBut('leaderGuess', guess, ws);
-  clientBase.updateEveryoneStatus('picking');
-  server.sendAll('allStatusUpdate', 'picking');
-  server.updateClientStatus(ws, 'waiting-for-others');
+  clientBase.updateEveryoneStatus('picking', 'waiting-for-others');
+  server.sendAll('allStatusUpdate', { all: 'picking', leader: 'waiting-for-others' });
 });
 
 server.handlers.set('choosenCard', (ws, choosenCard) => {
-  ws.data.choosenCard = choosenCard;
+  ws.data.choosenCard = JSON.parse(choosenCard);
   if (clientBase.every(cl => cl.choosenCard !== undefined)) {
-    app.cards = Array.from(clientBase.values(), cl => { return {path: cl.choosenCard} } );
-    clientBase.updateEveryoneStatus('thinkig');
+    app.cards = clientBase.mapa(cl => cl.choosenCard);
+    clientBase.updateEveryoneStatus('thinking', 'waiting');
     server.sendAll('guessLeaderCard', app.cards);
   }
+  else if (ws.data.player.id !== app.leader.player.id)
+    server.updateClientStatus(ws, 'waiting-for-others');
 });
 
 server.handlers.set('guessedCard', (ws, guessedCard) => {
-  if (ws.data.guessedCard === undefined)
-    app.readyPlayers++;
-  ws.data.guessedCard = guessedCard;
+  ws.data.guessedCard = JSON.parse(guessedCard);
+  const readyPlayers = clientBase.reduce((rp, cl) => {
+    return rp + (cl.guessedCard !== undefined);
+  }, 0);
 
-  if (app.readyPlayers + 1 === clientBase.size) {
-    app.turnCards = Array.from(clientBase.values(), cl => {
+  if (readyPlayers + 1 === clientBase.length) {
+    app.cards = clientBase.mapa(cl => {
       let choose = {
         owner: cl.player,
-        card: { path: cl.choosenCard },
+        card: cl.choosenCard,
         players: [], 
       }
       clientBase.forEach(cll => {
-        if (cll.guessedCard === choose.card.path)
+        if (cll.guessedCard === undefined) return;
+        if (cll.guessedCard.id === choose.card.id)
           choose.players.push(cll.player);
       });
-      cl.player.score += choose.players.length;
+
+      if (cl.player.id !== app.leader.player.id) {
+        cl.player.score += choose.players.length;
+        if (cl.guessedCard.id === app.leader.choosenCard.id)
+          cl.player.score += 3;
+      }
+      else if (choose.players.length + 1 !== clientBase.length)
+        cl.player.score += choose.players.length;
+
       return choose;
     });
-    server.sendAll('turnResults', app.turnCards);
-    server.sendAll('updateScore', Array.from(clientBase.values(), 
-      cl => cl.player
-    ));
-    setTimeout(() => app.newTurn(), 5500);
+    server.sendAll('turnResults', app.cards);
+    server.sendAll('updateScore', clientBase.mapa(cl => {
+      return {
+        id: cl.player.id,
+        score: cl.player.score,
+      }
+    }));
+    setTimeout(() => app.newTurn(), 6000);
   }
 });
 
 server.handlers.set('removeCard', (ws) => {
   ws.data.guessedCard = undefined;
-  app.readyPlayers--;
 });
 
 server.handlers.set('IWantNewColor', (ws) => {
@@ -238,16 +246,16 @@ const handleClient = (ws, id) => {
   }
 
   ws.isActive = true;
-  clientBase.set(ws.data.player.id, ws.data);
+  clientBase.set(ws.data);
 
   ws.say('setup', {
-    players:      Array.from(clientBase.values(), client => client.player),
+    players:      clientBase,
     cards:        ws.data.cards,
     id:           ws.data.player.id,
     appState:     app.state,
-    leader:       app.leader,
+    leader:       app.leaderId,
     leaderGuess:  app.leaderGuess,
-    order:        app.order,
+    appCards:     app.cards,
   });
   log.do('sclient');
 }

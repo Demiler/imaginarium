@@ -16,19 +16,13 @@ class ImApp extends LitElement {
     super();
     
     this.state = 'loading';
+    this.everyonesCards = api.cards;
     this.stateAfterLoading = 'lobby'; //debug only
     this.api = api; //debug only
     this.apiSetup();
 
     this.clicker = false;
     this.click = () => { this.clicker = !this.clicker }
-
-    //this.loader = setInterval(() => {
-      //if (this.host === undefined) return;
-      //this.state = this.stateAfterLoading;
-      //clearInterval(this.loader);
-    //}, 600);
-
   }
 
   render() {

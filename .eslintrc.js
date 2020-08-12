@@ -10,5 +10,8 @@ module.exports = {
         "sourceType": "module"
     },
     "rules": {
+      "no-shadow": 2,
+      "no-var": 2,
+      "prefer-destructuring": 2,
     }
 };

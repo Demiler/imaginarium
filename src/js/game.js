@@ -28,6 +28,7 @@ class Game extends LitElement {
     this.host = api.host; //debug only
     this.state = this.loadOnHostStatus();
     this.send = false;
+    this.everyonesCards = api.cards;
     this.updatePickBtn();
     this.updateGoBtn();
 
@@ -51,19 +52,10 @@ class Game extends LitElement {
       this.state = 'picking own card';
     });
 
-    api.on('cardsUpdate', (data) => {
-      console.log(data);
-      let card = api.host.cards.findIndex(c => c === data.remove);
-      if (card === undefined) return console.log('wtf card not found!');
-      api.host.cards[card] = data.add;
-      this.click();
-    });
-
     api.on('guessLeaderCard', (cards) => {
       this.everyonesCards = cards;
       api.players.forEach(pl => pl.status = 'thinking');
-      if (api.host.id === api.leader.id) 
-        api.host.updateStatus('watching');
+      api.leader.status = 'watching';
       this.state = 'guessing leader card';
       this.initOnState();
     });
@@ -95,7 +87,9 @@ class Game extends LitElement {
       case 'picking':             return 'picking own card';
       case 'waiting-for-others':  return 'waiting for others';
       case 'cheking-results':     return 'turn results';
-      default:                    return 'unknown';
+      case 'waiting':
+      case 'thinking':            return 'guessing leader card';
+      default:                    return 'unknown. Host status: ' + api.host.status;
     }
   }
 
@@ -116,23 +110,27 @@ class Game extends LitElement {
 
   initNewTurn(data) {
     console.log(data);
-    api.host.cards[
-      api.host.cards
-      .findIndex(card => card.path === data.removeCard)
-    ] = data.addCard;
-    this.leader = api.players[data.leader];
+    const { cards } = api.host;
+    const delFrom = cards.findIndex(card => card.id === data.removeCard.id);
+    cards.splice(delFrom, 1);
+    cards.push(data.addCard);
+
+    api.leader = api.players[data.leader]
+    this.leader = api.leader;
     this.everyonesCards = [];
     this.leader.guess = '';
     api.host.choosenCard = undefined;
     this.state = this.leader === api.host ? 'leader guessing' : 'waiting for leader';
     this.send = false;
+    api.players.forEach(pl => pl.status = 'waiting-for-leader');
+    this.leader.status = 'guessing';
     this.requestUpdate();
     this.initOnState();
   }
 
   initLeaderGuessing() {
     this.updateGoBtn();
-    api.host.updateStatus('guessing');
+    //api.host.updateStatus('guessing');
   }
 
   initWaitingForLeader() {
@@ -143,16 +141,16 @@ class Game extends LitElement {
   }
 
   initWaitingForOthers() {
-    api.host.updateStatus('waiting-for-others');
-    let card = api.host.choosenCard.currentSrc.split('/').pop();
-    api.sendServer('choosenCard', card);      
+    const { id } = api.host.choosenCard;
+    const card = api.host.cards.find(c => c.id === id);
+    api.sendServer('choosenCard', card);
   }
 
   initGuessingLeaderCard() {
-    if (api.host.id === this.leader.id)
-      api.host.updateStatus('watching');
-    else
-      api.host.updateStatus('thinking');
+    //if (api.host.id === this.leader.id)
+      //api.host.updateStatus('watching');
+    //else
+      //api.host.updateStatus('thinking');
     api.host.choosenCard = undefined;
     this.updatePickBtn();
   }
@@ -170,7 +168,6 @@ class Game extends LitElement {
     setTimeout(() => {
     console.log(1);
     setTimeout(() => {
-      //this.initNewTurn()
     }, 1000);
     }, 1000);
     }, 1000);
@@ -215,17 +212,26 @@ class Game extends LitElement {
     }
   }
 
-  chooseCard(event) {
-    if (api.host.choosenCard !== undefined) {
-      api.host.choosenCard.classList.remove("choosen");
-    }
-    if (api.host.choosenCard !== event.target) {
-      api.host.choosenCard = event.target;
+  chooseCard(event, allowOwn = true) {
+    const { id } = event.currentTarget.dataset;
+    const { cards } = api.host;
+    if (!allowOwn && cards.find(card => card.id === id))
+      return false;
+
+    if (api.host.choosenCard !== undefined)
+      api.host.choosenCard.elm.classList.remove("choosen");
+    
+    if (!api.host.choosenCard || api.host.choosenCard.elm !== event.target) {
+      api.host.choosenCard = {
+        elm: event.target,
+        id,
+      }
       event.target.classList.add("choosen");
     }
     else { 
       api.host.choosenCard = undefined;
     }
+    return true;
   }
 
   updatePickBtn() {
@@ -254,7 +260,8 @@ class Game extends LitElement {
         <div class='cards-container'>
           ${this.everyonesCards.map(choose => html`
             <div class="card preview ${
-              choose.owner.id === this.leader.id ? "leader" : "common"}">
+              choose.owner.id === this.leader.id ? "leader" : 
+              choose.owner.id === this.host.id   ? "own"    : "common" }">
               <div class="wrap">
                 <img class="card-image" src="../img/cards/${choose.card.path}">
                 <img class="card-owner" src="../img/avatars/${choose.owner.icon}"
@@ -284,20 +291,20 @@ class Game extends LitElement {
         ${this.drawLeader()}        
         ${this.drawCards((event) => {
           if (api.host === this.leader) return;
-          this.chooseCard(event);
+          if (!this.chooseCard(event, false)) return;
           if (api.host.choosenCard === undefined) {
             api.host.updateStatus('thinking');
             api.sendServer('removeCard');
           }
           else {
             api.host.updateStatus('waiting');
-            let card = api.host.choosenCard.currentSrc.split('/').pop();
+            const { id } = api.host.choosenCard;
+            const card = this.everyonesCards.find(c => c.id === id);
             api.sendServer('guessedCard', card);
           }
-          api.sendServer('statusUpdate', api.host.status);
 
           //this.updatePickBtn();
-        }, this.everyonesCards)}
+        }, this.everyonesCards, api.host.id !== api.leader.id)}
     `;
   }
 
@@ -427,11 +434,14 @@ class Game extends LitElement {
     `;
   }
 
-  drawCards(clickAction = ()=>{}, cards = api.host.cards) {
+  drawCards(clickAction = ()=>{}, cards = api.host.cards, markOwn = false) {
     return html`
       <div class="cards-container">
         ${cards.map(card => html`
-          <div class="card preview" @click="${clickAction}">
+          <div class="card preview ${
+            markOwn && api.host.cards.find(c => c.path === card.path) ? 
+              "own" : ""
+            }" @click="${clickAction}" data-id="${card.id}">
             <div class="wrap">
               <img class="card-image" src="${cardsPath}/${card.path}">
             </div>

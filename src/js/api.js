@@ -26,7 +26,12 @@ class Api {
     this.send = (type, data) =>
       this.ws.send(JSON.stringify({ type, data }));
 
-    this.sendServer = (type, data) => this.ws.send(`server ${type} ${data}`);
+    this.sendServer = (type, data) => {
+      if (typeof data === "string")
+        this.ws.send(`server ${type} ${data}`);
+      else
+        this.ws.send(`server ${type} ${JSON.stringify(data)}`);
+    }
 
     this.conect();
   }
@@ -62,6 +67,7 @@ class Api {
     }
 
     this.ws.onmessage = (event) => {
+      console.log(event);
       let data = JSON.parse(event.data);
       if (this.handlers.has(data.type)) 
         this.handlers.get(data.type).forEach(handler => handler(data.data));
@@ -71,34 +77,31 @@ class Api {
       }
     }
   }
+
+  setHost(data) {
+    this.host = this.players.find(pl => pl.id === data.id);
+    this.host.cards = data.cards;
+
+    this.host.updateStatus = (newStatus) => {
+      this.host.status = newStatus;
+      this.sendServer('statusUpdate', newStatus);      
+      this.publish('update');
+    };
+  }
 }
 
 export const api = new Api();
 
 api.on('setup', (data) => {
   api.players = data.players.map(pl => Player.fromJSON(pl));
-  api.host = api.players.find(pl => pl.id === data.id);
-  api.host.cards = data.cards;
-
+  api.setHost(data);
   if (data.appState === 'game') {
-    data.order.sort((a, b) => {
-      if (a > b) 
-        [api.players[b], api.players[a]] =
-        [api.players[a], api.players[b]];
-      return a > b;
-    });
-
     api.leader = api.players[data.leader];
     api.leader.guess = data.leaderGuess;
   }
+  api.cards = data.appCards;
   localStorage.setItem('id', data.id);
   api.publish('setup ready', data.appState);
-
-  api.host.updateStatus = (newStatus) => {
-    api.host.status = newStatus;
-    api.sendServer('statusUpdate', newStatus);      
-    api.publish('update');
-  };
 });
 
 api.on('statusUpdate', (data) => {
@@ -123,24 +126,18 @@ api.on('removeClient', (id) => {
 api.on('allStatusUpdate', (status) => {
   api.players.forEach(player => {
     if (player.status !== 'offline')
-      player.status = status;
+      player.status = status.all;
   });
+  api.leader.status = status.leader;
   api.publish('update');
 });
 
 api.on('gameInit', (data) => {
-  data.order.sort((a, b) => {
-    if (a > b) 
-      [api.players[b], api.players[a]] =
-      [api.players[a], api.players[b]];
-    return a > b;
-  });
+  api.players = data.order.map(pl => Player.fromJSON(pl));
+  api.setHost(data);
   api.leader = api.players[data.leader];
   api.leader.guess = '';
-  api.host.cards = data.cards;
-  api.players.forEach(pl => pl.status = 'waiting-for-leader');
-  if (api.leader.id === api.host.id)
-    api.host.updateStatus('guessing');
+  //api.players.forEach(pl => pl.status = 'waiting-for-leader');
 
   api.publish('game');
 });
