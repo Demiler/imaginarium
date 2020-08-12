@@ -37,7 +37,7 @@ class Api {
   }
 
   conect() {
-    this.ws = new WebSocket(`ws://192.168.1.67:8081/`);
+    this.ws = new WebSocket(`ws://localhost:8081/`);
 
     this.ws.onopen = () => {
       console.log('WebSocket is open now');
