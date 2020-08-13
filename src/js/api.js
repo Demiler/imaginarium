@@ -1,4 +1,8 @@
 const { Player } = require('./player.js');
+const getIP = () => {
+  return (document.location !== 'https://ma-chose.herokuapp.com/') ?
+    'wss://localhost:8081' : 'wss://ma-chose.herokuapp.com';
+}
 
 class Api {
   constructor() {
@@ -37,7 +41,7 @@ class Api {
   }
 
   conect() {
-    this.ws = new WebSocket(`wss://ma-chose.herokuapp.com/`);
+    this.ws = new WebSocket(getIP());
 
     this.ws.onopen = () => {
       console.log('WebSocket is open now');

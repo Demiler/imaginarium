@@ -13,7 +13,10 @@ class Lobby extends LitElement {
 
   constructor() {
     super();
+    this.rgx = /^#[1-9a-fA-F]{3,6}$/;
     api.on('colorUpdate', (data) => {
+      if (typeof data.color !== "string") return;
+      if (!rgx.test(data.color)) return;
       api.players.find(pl => pl.id === data.id).color = data.color;
       this.requestUpdate()
     });
