@@ -1,6 +1,6 @@
 const { Player } = require('./player.js');
 const getIP = () => {
-  return (document.location !== 'https://ma-chose.herokuapp.com/') ?
+  return (document.location.href !== 'https://ma-chose.herokuapp.com/') ?
     'wss://localhost:8081' : 'wss://ma-chose.herokuapp.com';
 }
 
