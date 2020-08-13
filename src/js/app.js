@@ -18,7 +18,7 @@ class ImApp extends LitElement {
     this.state = 'loading';
     this.everyonesCards = api.cards;
     this.stateAfterLoading = 'lobby'; //debug only
-    this.api = api; //debug only
+    //this.api = api; //debug only
     this.apiSetup();
 
     this.clicker = false;
