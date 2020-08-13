@@ -37,7 +37,7 @@ class Api {
   }
 
   conect() {
-    this.ws = new WebSocket(`ws://ma-chose.herokuapp.com/`);
+    this.ws = new WebSocket(`wss://ma-chose.herokuapp.com/`);
 
     this.ws.onopen = () => {
       console.log('WebSocket is open now');
