@@ -2,6 +2,7 @@ import { LitElement, html } from 'lit-element'
 import './lobby.js'
 import './game.js'
 import './loading.js'
+import './login.js'
 import { api } from './api.js'
 
 class ImApp extends LitElement {
@@ -18,7 +19,7 @@ class ImApp extends LitElement {
     this.state = 'loading';
     this.everyonesCards = api.cards;
     this.stateAfterLoading = 'lobby'; //debug only
-    //this.api = api; //debug only
+    this.api = api; //debug only
     this.apiSetup();
 
     this.clicker = false;
@@ -27,6 +28,9 @@ class ImApp extends LitElement {
 
   render() {
     switch (this.state) {
+      case 'login': return html`
+        <im-login></im-login>
+      `;
       case 'loading': return html`
         <im-loading></im-loading>
       `;
@@ -63,6 +67,10 @@ class ImApp extends LitElement {
   }
 
   apiSetup() {
+    api.on('login', () => {
+      this.state = 'login';
+    });
+
     api.on('newMessage', (msg) => {
       console.log(`message from ${msg.id}: ${msg.data}`);
     });

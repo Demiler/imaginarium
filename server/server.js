@@ -2,7 +2,7 @@ const WebSocket = require('ws');
 const uuid = require('uuid');
 const { log } = require('./logger.js');
 const { Player }  = require('../src/js/player.js');
-const { getName } = require('../src/js/utils/names.js');
+//const { getName } = require('../src/js/utils/names.js');
 const { getColor } = require('../src/js/utils/colors.js');
 const { cardsDB } = require('./cards-db.js');
 const { shuffle } = require('./shuffle.js');
@@ -28,11 +28,12 @@ server.listen(process.env.PORT || 8081);
 
 //===========================CONFIG=============================//
 
-let clientBase = new clientArray();
+let clientBase = new Map();
+let activeClients = new clientArray();
 let lostClients = new Map();
 
-clientBase.updateEveryoneStatus = (status, leaderStatus) => {
- clientBase.forEach(client => {
+activeClients.updateEveryoneStatus = (status, leaderStatus) => {
+ activeClients.forEach(client => {
   if (client.player.status === 'offline')
     client.player.statusBeforeOffline = status;
   else
@@ -52,10 +53,10 @@ let app = {
   newTurn() {
     app.readyPlayers = 0;
     app.cards = [];
-    app.leaderId = (app.leaderId + 1) % clientBase.length;
-    app.leader = clientBase[app.leaderId];
+    app.leaderId = (app.leaderId + 1) % activeClients.length;
+    app.leader = activeClients[app.leaderId];
     app.leaderGuess = '';
-    let newCards = cardsDB.getNCards(clientBase.length);
+    let newCards = cardsDB.getNCards(activeClients.length);
     wss.clients.forEach(ws => {
       ws.say('newTurn', {
         leader: app.leaderId,
@@ -65,19 +66,19 @@ let app = {
       ws.data.choosenCard = undefined;
       ws.data.guessedCard = undefined;
     });
-    clientBase.updateEveryoneStatus('waiting-for-leader', 'guessing');
+    activeClients.updateEveryoneStatus('waiting-for-leader', 'guessing');
   },
 
   initGame() {
     app.state = 'game';
-    shuffle(clientBase);
-    app.leader = clientBase[app.leaderId];
-    clientBase.updateEveryoneStatus('waiting-for-leader', 'guessing');
+    shuffle(activeClients);
+    app.leader = activeClients[app.leaderId];
+    activeClients.updateEveryoneStatus('waiting-for-leader', 'guessing');
     wss.clients.forEach(ws => {
       ws.data.cards = cardsDB.getNCards(6);
       ws.say('gameInit', {
         id: ws.data.player.id,
-        order: clientBase,
+        order: activeClients,
         leader: app.leaderId,
         cards: ws.data.cards,
       });
@@ -97,11 +98,17 @@ wss.handleRequest = (ws, data) => {
   else log.do('serror', `Handler '${type}' not found`);
 }
 
-wss.handlers.set('connected', (ws, id) => handleClient(ws, id));
+//wss.handlers.set('connected', (ws, id) => handleClient(ws, id));
+wss.handlers.set('connected', (ws, login) => {
+  if (clientBase.has(login))
+    handleClient(ws, login);
+  else
+    ws.say('login');
+});
 
 wss.handlers.set('lobbyUpdate', (ws, status) => {
   wss.updateClientStatus(ws, status);
-  if (clientBase.every(cl => cl.player.status === 'ready')) 
+  if (activeClients.every(cl => cl.player.status === 'ready')) 
     app.initGame();
 });
 
@@ -112,15 +119,15 @@ wss.handlers.set('statusUpdate', (ws, status) => {
 wss.handlers.set('leaderGuess', (ws, guess) => {
   app.leaderGuess = guess;
   wss.sendAllBut('leaderGuess', guess, ws);
-  clientBase.updateEveryoneStatus('picking', 'waiting-for-others');
+  activeClients.updateEveryoneStatus('picking', 'waiting-for-others');
   wss.sendAll('allStatusUpdate', { all: 'picking', leader: 'waiting-for-others' });
 });
 
 wss.handlers.set('choosenCard', (ws, choosenCard) => {
   ws.data.choosenCard = JSON.parse(choosenCard);
-  if (clientBase.every(cl => cl.choosenCard !== undefined)) {
-    app.cards = clientBase.mapa(cl => cl.choosenCard);
-    clientBase.updateEveryoneStatus('thinking', 'waiting');
+  if (activeClients.every(cl => cl.choosenCard !== undefined)) {
+    app.cards = activeClients.mapa(cl => cl.choosenCard);
+    activeClients.updateEveryoneStatus('thinking', 'waiting');
     wss.sendAll('guessLeaderCard', app.cards);
   }
   else if (ws.data.player.id !== app.leader.player.id)
@@ -129,18 +136,18 @@ wss.handlers.set('choosenCard', (ws, choosenCard) => {
 
 wss.handlers.set('guessedCard', (ws, guessedCard) => {
   ws.data.guessedCard = JSON.parse(guessedCard);
-  const readyPlayers = clientBase.reduce((rp, cl) => {
+  const readyPlayers = activeClients.reduce((rp, cl) => {
     return rp + (cl.guessedCard !== undefined);
   }, 0);
 
-  if (readyPlayers + 1 === clientBase.length) {
-    app.cards = clientBase.mapa(cl => {
+  if (readyPlayers + 1 === activeClients.length) {
+    app.cards = activeClients.mapa(cl => {
       let choose = {
         owner: cl.player,
         card: cl.choosenCard,
         players: [], 
       }
-      clientBase.forEach(cll => {
+      activeClients.forEach(cll => {
         if (cll.guessedCard === undefined) return;
         if (cll.guessedCard.id === choose.card.id)
           choose.players.push(cll.player);
@@ -151,13 +158,13 @@ wss.handlers.set('guessedCard', (ws, guessedCard) => {
         if (cl.guessedCard.id === app.leader.choosenCard.id)
           cl.player.score += 3;
       }
-      else if (choose.players.length + 1 !== clientBase.length)
+      else if (choose.players.length + 1 !== activeClients.length)
         cl.player.score += choose.players.length;
 
       return choose;
     });
     wss.sendAll('turnResults', app.cards);
-    wss.sendAll('updateScore', clientBase.mapa(cl => {
+    wss.sendAll('updateScore', activeClients.mapa(cl => {
       return {
         id: cl.player.id,
         score: cl.player.score,
@@ -176,6 +183,31 @@ wss.handlers.set('IWantNewColor', (ws) => {
   wss.sendAll('colorUpdate', { id: ws.data.player.id, color: ws.data.player.color });
 });
 
+wss.handlers.set('userLogin', (ws, data) => {
+  data = JSON.parse(data);
+  log.do('sclient', `Got new login ${data.user.login}`);
+
+  if (data.type === 'register') {
+    if (clientBase.has(data.user.login))
+      ws.say('loginUnavailable');
+    else {
+      log.do('sclient', `Set new client`);
+      clientBase.set(data.user.login, data.user.password);
+      handleClient(ws, data.user.login);
+    }
+  }
+  else if (data.type === 'login') {
+    let client = clientBase.get(data.user.login)
+    if (!client)
+      ws.say('loginNotFound');
+    else if (data.user.password !== client)
+      ws.say('incorrectPassword');
+    else
+      handleClient(ws, data.user.login);
+  }
+  else log.do('serror', 'Unknown type of userLogin');
+});
+
 //======================CONNECTION SETUP========================//
 wss.on('connection', ws => {
   ws.isAlive = true;    //used for ping-pong
@@ -184,10 +216,11 @@ wss.on('connection', ws => {
   ws.say = (type, data) => ws.send(JSON.stringify({ type, data }));
 
   ws.on('message', (data) => {
-    if (!ws.isActive) return;
-    if (data.startsWith('server'))
+    if (!ws.isActive && data.startsWith('server userLogin'))
+      wss.handlers.get('userLogin')(ws, data.substr(17)); //17 = 'server userLogin '.length
+    else if (data.startsWith('server'))
       wss.handleRequest(ws, data.substr(7)); //7 = 'wss '.length
-    else
+    else if (ws.isActive)
       wss.sendAllButRaw(data, ws)
   });
 
@@ -199,7 +232,7 @@ wss.on('connection', ws => {
 
   ws.on('pong', () => {
     ws.isAlive = true;
-    log.do('spipo', 'Cleint pong');
+    log.do('spipo', 'Client pong');
   });
 });
 
@@ -217,20 +250,20 @@ wss.pinger = setInterval(() => {
 }, 10000);
 
 //=======================HANDLE CLIENT==========================//
-const handleClient = (ws, id) => {
-  if (clientBase.has(id) && !lostClients.has(id)) {
+const handleClient = (ws, login) => {
+  if (activeClients.has(login) && !lostClients.has(login)) {
     log.do('sclient', 'Same client opened game in another tab');
     ws.say('closeThisTab');
     return;
   }
 
-  let lostClient = lostClients.get(id);
+  let lostClient = lostClients.get(login);
   log.do('sclient',
-    `Client id recieved: ${id}. Is client found: ${lostClient !== undefined}`);
+    `Client login recieved: ${login}. Is client found: ${lostClient !== undefined}`);
 
   if (lostClient !== undefined) {
     ws.data = lostClient;
-    lostClients.delete(id);
+    lostClients.delete(login);
     clearTimeout(ws.data.timeouts.offline);
     clearTimeout(ws.data.timeouts.remove);
     clearTimeout(ws.data.timeouts.delete);
@@ -243,24 +276,25 @@ const handleClient = (ws, id) => {
       wss.updateClientStatus(ws, ws.data.player.statusBeforeOffline);
     
     ws.data.removed = false;
-    log.do('sclient', `Resurrecting old player. ${ws.data.player.name}`);
+    log.do('sclient', `Resurrecting old player. ${ws.data.player.login}`);
   }
   else {
     ws.data = {
       removed: false,
-      player: new Player(uuid.v4(), getName(), getColor()),
+      player: new Player(login, uuid.v4(), login, getColor()),
       cards: [],
       timeouts: {},
     };
     wss.sendAllBut('addClient', ws.data.player, ws);
-    log.do('sclient', `Creating new player ${ws.data.player.id}. ${ws.data.player.name}`);
+    log.do('sclient', 
+      `Creating new player ${ws.data.player.id}. ${ws.data.player.login}`);
   }
 
   ws.isActive = true;
-  clientBase.set(ws.data);
+  activeClients.set(ws.data);
 
   ws.say('setup', {
-    players:      clientBase,
+    players:      activeClients,
     cards:        ws.data.cards,
     id:           ws.data.player.id,
     appState:     app.state,
@@ -272,7 +306,7 @@ const handleClient = (ws, id) => {
 }
 //=====================HANDLE DISCONNECT========================//
 const handleDisconnect = (ws) => {
-  lostClients.set(ws.data.player.id, ws.data);
+  lostClients.set(ws.data.player.login, ws.data);
 
   ws.data.timeouts.offline = setTimeout(() => {
     ws.data.player.statusBeforeOffline = ws.data.player.status;
@@ -280,15 +314,15 @@ const handleDisconnect = (ws) => {
   }, 400);
 
   ws.data.timeouts.remove = setTimeout(() => { 
-    if (!lostClients.has(ws.data.player.id)) return;
+    if (!lostClients.has(ws.data.player.login)) return;
     ws.data.removed = true;
     wss.sendAllBut('removeClient', ws.data.player.id, ws);
-    clientBase.delete(ws.data.player.id);
+    activeClients.delete(ws.data.player.login);
     log.do('sclient', `Sending reuqest to delete client ${ws.data.player.name}`);
   }, 10000);
 
   ws.data.timeouts.delete = setTimeout(() => { 
-    if (!lostClients.delete(ws.data.player.id)) return;
+    if (!lostClients.delete(ws.data.player.login)) return;
     log.do('sclient', `${ws.data.player.name} was deleted completly`);
   }, 30000);
 }

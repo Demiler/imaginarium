@@ -1,7 +1,7 @@
 const { Player } = require('./player.js');
 const getIP = () => {
   return (document.location.href !== 'https://ma-chose.herokuapp.com/') ?
-    'wss://localhost:8081' : 'wss://ma-chose.herokuapp.com';
+    'ws://localhost:8081' : 'wss://ma-chose.herokuapp.com';
 }
 
 class Api {
@@ -47,7 +47,7 @@ class Api {
       console.log('WebSocket is open now');
       this.tries = 0;
       clearInterval(this.reconnect);
-      this.sendServer('connected', localStorage.getItem('id'));
+      this.sendServer('connected', localStorage.getItem('login'));
     }
 
     this.ws.onclose = () => {
@@ -71,7 +71,6 @@ class Api {
     }
 
     this.ws.onmessage = (event) => {
-      console.log(event);
       let data = JSON.parse(event.data);
       if (this.handlers.has(data.type)) 
         this.handlers.get(data.type).forEach(handler => handler(data.data));
@@ -104,7 +103,6 @@ api.on('setup', (data) => {
     api.leader.guess = data.leaderGuess;
   }
   api.cards = data.appCards;
-  localStorage.setItem('id', data.id);
   api.publish('setup ready', data.appState);
 });
 

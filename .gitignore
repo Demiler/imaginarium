@@ -3,3 +3,4 @@ node_modules/*
 #assets/*
 build/*
 *.swp
+src/js/utils/getLHIP.js
