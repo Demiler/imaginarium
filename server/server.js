@@ -184,7 +184,6 @@ wss.on('connection', ws => {
   ws.say = (type, data) => ws.send(JSON.stringify({ type, data }));
 
   ws.on('message', (data) => {
-    if (!ws.isActive) return;
     if (data.startsWith('server'))
       wss.handleRequest(ws, data.substr(7)); //7 = 'wss '.length
     else
