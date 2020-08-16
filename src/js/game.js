@@ -417,8 +417,8 @@ class Game extends LitElement {
     return html`
     <div class="leader-container">
       <div class="leader-wrap">
-        <img class="leader-image" src="../img/avatars/${this.leader.icon}"
-          style="background-color: ${this.leader.color}">
+        <img class="leader-image" src="../img/avatars/${this.leader.avatar.img}"
+          style="background-color: ${this.leader.avatar.color}">
         <span class="leader-name">${this.leader.name}</span>
         <span class="player-score">${this.leader.score}</span>
       </div>

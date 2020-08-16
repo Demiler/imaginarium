@@ -7,6 +7,7 @@ class Login extends LitElement {
     return {
       btnText: { type: String },
       errorMsg: { type: String },
+      logtype: { type: String },
     };
   }
 
@@ -38,7 +39,7 @@ class Login extends LitElement {
     return html`
       <div class='login-container'>
         <header class='header'>
-          <span id="login" class='tab current' @click=${this.tabChange}>
+          <span id="login" class='tab' @click=${this.tabChange}>
             <span class='text'>Login</span>
             <hr class="underline">
           </span>
@@ -46,13 +47,17 @@ class Login extends LitElement {
             <span class='text'>Register</span>
             <hr class="underline">
           </span>
+          <span id="guest" class='tab' @click=${this.tabChange}>
+            <span class='text'>Guest</span>
+            <hr class="underline">
+          </span>
         </header>
         <span id="error">${this.errorMsg}</span>
-        <div class='input-group'>
+        <div class='input-group ${this.logtype}'>
           <div class='input login-input
             ${/^ *$/.test(this.user.login) ? "empty" : "fill"}'>
             <img src="/assets/icons/person-fill.svg">
-            <input id='login-inp' spellcheck='false'
+            <input id='login-inp' spellcheck='false' autocomplete='off'
              value=${this.user.login} @change=${this.inputLogin}
              @keydown=${this.keyLogin} @focus=${this.focusInput}
              @blur=${this.blurInput}>
@@ -66,7 +71,7 @@ class Login extends LitElement {
           <div class='input passw-input
             ${/^ *$/.test(this.user.password) ? "empty" : "fill"}'>
             <img src="/assets/icons/lock-fill.svg">
-            <input id="passw-inp" type='password' spellcheck='false'
+            <input id="passw-inp" type='password' spellcheck='false' autocomplete='off'
              value=${this.user.password} @change=${this.inputPassword}
              @keydown=${this.keyPassword} @focus=${this.focusInput}
              @blur=${this.blurInput}>
@@ -79,7 +84,7 @@ class Login extends LitElement {
           <div class='input email-input 
             ${/^ *$/.test(this.user.email) ? "empty" : "fill"}'>
             <img src="/assets/icons/mailbox2.svg">
-            <input id="email-inp" spellcheck='false'
+            <input id="email-inp" spellcheck='false' autocomplete='off'
              value=${this.user.email} @change=${this.inputEmail}
              @keydown=${this.keyMail} @focus=${this.focusInput}
              @blur=${this.blurInput}>
@@ -113,17 +118,17 @@ class Login extends LitElement {
   firstUpdated() {
     this.logTab = this.renderRoot.querySelector('#login');
     this.regTab = this.renderRoot.querySelector('#register');
-    this.rembme = this.renderRoot.querySelector('#rememberme');
+    this.gstTab = this.renderRoot.querySelector('#guest');
     this.err    = this.renderRoot.querySelector('#error');
     this.pass   = this.renderRoot.querySelector('#passw-inp');
     this.eye    = this.renderRoot.querySelector('#eye');
+    this.email  = this.renderRoot.querySelector('#email-inp');
+    this.login  = this.renderRoot.querySelector('#login-inp');
     this.logCheck  = this.renderRoot.querySelector('#logcheck');
     this.mailCheck = this.renderRoot.querySelector('#mailcheck');
-    this.email  = this.renderRoot.querySelector('#email-inp');
-    this.emailWrap  = this.renderRoot.querySelector('.email-input');
-    this.login  = this.renderRoot.querySelector('#login-inp');
-    this.emailWrap.classList.add('hide');
+
     this.curTab = this.logTab;
+    this.curTab.classList.add('current');
     this.btnText = "Login";
 
   }
@@ -145,8 +150,14 @@ class Login extends LitElement {
   keyLogin(event) {
     clearTimeout(this.reglogto);
 
-    if (event.key === 'Enter')
-      this.pass.focus()
+    if (event.key === 'Enter') {
+      this.user.login = event.target.value;
+      if (this.logtype === 'guest')
+        this.continue();
+      else
+        this.pass.focus()
+    }
+
     if (this.logtype === 'register')
       this.reglogto = 
         this.checkValid(this.logCheck, 'checkLogin', event);
@@ -214,26 +225,24 @@ class Login extends LitElement {
   tabChange(event) {
     if (event.currentTarget === this.curTab) return;
     this.curTab.classList.remove('current');
+    this.curTab = event.currentTarget;
 
-    if (this.curTab === this.logTab) {
-      this.curTab = this.regTab;
-      this.rembme.classList.add('hide');
+    if (this.curTab === this.regTab) {
       this.btnText = "Register";
       this.logtype = 'register';
       this.logCheck.classList.remove('hide');
-      this.mailCheck.classList.remove('hide');
-      this.emailWrap.classList.remove('hide');
       this.checkValid(this.logCheck, 'checkLogin', 
         { key: this.user.login[0], target: this.logCheck });
     }
-    else {
-      this.curTab = this.logTab;
-      this.rembme.classList.remove('hide');
+    else if (this.curTab === this.logTab) {
       this.btnText = "Login";
       this.logtype = 'login';
       this.logCheck.classList.add('hide');
-      this.mailCheck.classList.add('hide');
-      this.emailWrap.classList.add('hide');
+    } 
+    else {
+      this.btnText = "Go";
+      this.logtype = 'guest';
+      this.logCheck.classList.add('hide');
     }
 
     this.curTab.classList.add('current');
@@ -251,24 +260,26 @@ class Login extends LitElement {
 
   continue() {
     if (/^ *$/.test(this.user.login))
-      this.error('Input login!');
-    else if (/^ *$/.test(this.user.password))
-      this.error('Input password!');
-    else if (!/^[a-zA-Z1-9_-]*$/.test(this.user.login))
-      this.error('Invalid symbols in login!');
-    else if (!/^[a-zA-Z1-9_-]*$/.test(this.user.password))
-      this.error('Invalid symbols in password!');
-    else if (this.logtype === 'register') {
-      if (/^ *$/.test(this.user.email))
-        this.error('Input email!');
-      else if (!/\S+@\S+\.\S+/.test(this.user.email))
-        this.error('Invalid email!');
-      else
-        this.sendData();
+      return this.error('Input login!');
+
+    if (!/^[a-zA-Z1-9_-]*$/.test(this.user.login))
+      return this.error('Invalid symbols in login!');
+
+    if (this.logtype === 'register' || this.logtype === 'login') {
+      if (/^ *$/.test(this.user.password))
+        return this.error('Input password!');
+      if (!/^[a-zA-Z1-9_-]*$/.test(this.user.password))
+        return this.error('Invalid symbols in password!');
     }
-    else 
-      this.sendData();
-    
+
+    if (this.logtype === 'register') {
+      if (/^ *$/.test(this.user.email))
+        return this.error('Input email!');
+      if (!/\S+@\S+\.\S+/.test(this.user.email))
+        return this.error('Invalid email!');
+    }
+
+    this.sendData();
   }
 
   sendData() {

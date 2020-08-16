@@ -7,11 +7,13 @@ const { clientArray } = require('./client-array.js');
 const { Client } = require('./client.js');
 const md5 = require('md5');
 const http = require('http');
+const uuid = require('uuid');
 const finalhandler = require('finalhandler')
 const serveStatic = require('serve-static')
 
 //============================LOGS==============================//
 log.setLog('spipo', false);
+log.setLog('slogin', true);
 log.setLog('serror', true);
 log.setLog('sclient', true);
 log.setLog('shandler', true);
@@ -33,12 +35,12 @@ let lostClients = new Map();
 
 activeClients.updateEveryoneStatus = (status, leaderStatus) => {
  activeClients.forEach(client => {
-  if (client.player.status === 'offline')
-    client.player.statusBeforeOffline = status;
+  if (client.game.status === 'offline')
+    client.game.statusBeforeOffline = status;
   else
-    client.player.status = status;
+    client.game.status = status;
   });
-  if (leaderStatus) app.leader.player.status = leaderStatus;
+  if (leaderStatus) app.leader.game.status = leaderStatus;
 }
 //============================APP===============================//
 let app = {
@@ -131,15 +133,16 @@ wss.handleRequest = (ws, data) => {
 
 //wss.handlers.set('connected', (ws, id) => handleClient(ws, id));
 wss.handlers.set('connected', (ws, id) => {
-  if (clientBase.has(id))
-    handleClient(ws, id);
+  const client = clientBase.get(id);
+  if (client)
+    handleClient(ws, client);
   else
     ws.say('login');
 });
 
 wss.handlers.set('lobbyUpdate', (ws, status) => {
   wss.updateClientStatus(ws, status);
-  if (activeClients.every(cl => cl.player.status === 'ready')) 
+  if (activeClients.every(cl => cl.game.status === 'ready')) 
     app.initGame();
 });
 
@@ -223,7 +226,7 @@ wss.on('connection', ws => {
 
   ws.on('close', () => {
     if (!ws.isActive) return;
-    log.do('sclient', `Connection lost with ${ws.data.player.name}`);
+    log.do('sclient', `Connection lost with ${ws.data.profile.login}`);
     handleDisconnect(ws);
   });
 
@@ -248,52 +251,44 @@ wss.pinger = setInterval(() => {
 
 //=======================HANDLE CLIENT==========================//
 const handleClient = (ws, client) => {
-  let { id } = client.profile;
-  if (activeClients.has(id) && !lostClients.has(id)) {
+  const { id } = client.profile;
+  const isLost = lostClients.has(id);
+
+  if (activeClients.has(id) && !isLost) {
     log.do('sclient', 'Same client opened game in another tab');
     ws.say('closeThisTab');
     return;
   }
 
   ws.data = client;
-  //let lostClient = lostClients.get(data.id);
-  //log.do('sclient',
-    //`Client id recieved: ${data.id}. Is client found: ${lostClient !== undefined}`);
+  log.do('sclient',
+    `Client recieved: ${client.profile.login}. Is client found: ${isLost}`);
 
-  //if (lostClient !== undefined) {
-    //ws.data = lostClient;
-    //lostClients.delete(id);
-    //ws.data.timeouts.clearAll();
+  if (isLost) {
+    lostClients.delete(id);
+    client.timeouts.clearAll();
 
-    //if (ws.data.removed) {
-      //ws.data.player.status = ws.data.player.statusBeforeOffline;
-      //wss.sendAllBut('addClient', ws.data.player, ws);
-    //}
-    //else if (ws.data.player.status === 'offline')
-      //wss.updateClientStatus(ws, ws.data.player.statusBeforeOffline);
-    
-    //ws.data.removed = false;
-    //log.do('sclient', `Resurrecting old player. ${ws.data.player.login}`);
-  //}
-  //else {
-    //ws.data = {
-      //removed: false,
-      //player: new Player(login, uuid.v4(), login, getColor()),
-      //cards: [],
-      //timeouts: {},
-    //};
-    //wss.sendAllBut('addClient', ws.data.player, ws);
-    //log.do('sclient', 
-      //`Creating new player ${ws.data.player.id}. ${ws.data.player.login}`);
-  //}
+    if (client.removed) 
+      client.game.status = client.game.statusBeforeOffline;
+    else if (client.game.status === 'offline')
+      wss.updateClientStatus(ws, client.game.statusBeforeOffline);
+
+    client.removed = false;
+    log.do('sclient', `Resurrecting old player. ${client.profile.login}`);
+  }
+  else {
+    wss.sendAllBut('addClient', client.getSendable());
+    log.do('sclient', 
+      `Adding new player ${client.profile.id}. ${client.profile.login}`);
+  }
 
   ws.isActive = true;
   activeClients.set(ws.data);
 
   ws.say('setup', {
     players:      activeClients,
-    cards:        ws.data.cards,
-    id:           ws.data.player.id,
+    cards:        client.game.cards,
+    id:           client.profile.id,
     appState:     app.state,
     leader:       app.leaderId,
     leaderGuess:  app.leaderGuess,
@@ -303,24 +298,24 @@ const handleClient = (ws, client) => {
 }
 //=====================HANDLE DISCONNECT========================//
 const handleDisconnect = (ws) => {
-  lostClients.set(ws.data.player.login, ws.data);
+  lostClients.set(ws.data.profile.id, ws.data);
 
   ws.data.timeouts.offline = setTimeout(() => {
-    ws.data.player.statusBeforeOffline = ws.data.player.status;
+    ws.data.game.statusBeforeOffline = ws.data.game.status;
     wss.updateClientStatus(ws, 'offline');
   }, 400);
 
   ws.data.timeouts.remove = setTimeout(() => { 
-    if (!lostClients.has(ws.data.player.login)) return;
+    if (!lostClients.has(ws.data.profile.login)) return;
     ws.data.removed = true;
-    wss.sendAllBut('removeClient', ws.data.player.id, ws);
-    activeClients.delete(ws.data.player.login);
-    log.do('sclient', `Sending reuqest to delete client ${ws.data.player.name}`);
+    wss.sendAllBut('removeClient', ws.data.profile.id, ws);
+    activeClients.delete(ws.data.profile.id);
+    log.do('sclient', `Sending reuqest to delete client ${ws.data.profile.name}`);
   }, 10000);
 
   ws.data.timeouts.delete = setTimeout(() => { 
-    if (!lostClients.delete(ws.data.player.login)) return;
-    log.do('sclient', `${ws.data.player.name} was deleted completly`);
+    if (!lostClients.delete(ws.data.profile.id)) return;
+    log.do('sclient', `${ws.data.profile.name} was deleted completly`);
   }, 30000);
 }
 
@@ -341,6 +336,7 @@ const handleLogin = (ws, data) => {
       log.do('slogin', `Set new client`);
       const newClient = new Client();
       newClient.generate(data.user.login, data.user.email);
+      newClient.profile.password = data.user.password;
       clientBase.set(newClient.profile.login, newClient);
       clientBase.set(newClient.profile.id, newClient);
 
@@ -353,7 +349,7 @@ const handleLogin = (ws, data) => {
       ws.say('loginError', `${data.user.login} is not found`);
       log.do('slogin', `Got uknown login`);
     }
-    else if (data.user.password !== client) {
+    else if (data.user.password !== client.profile.password) {
       ws.say('loginError', 'Password is incorrect');
       log.do('slogin', `Got incorrect password`);
     }
@@ -364,6 +360,13 @@ const handleLogin = (ws, data) => {
       handleClient(ws, client);
       log.do('slogin', `User ${data.user.login} has loged in`);
     }
+  }
+  else if (data.type === 'guest') {
+    let client = new Client();
+    client.generate(uuid.v4(), "none");
+    client.profile.name = data.user.login;
+    log.do('slogin', `Guest ${data.user.login} has been created`);
+    handleClient(ws, client);
   }
   else log.do('serror', 'Unknown type of userLogin');
 }
@@ -389,10 +392,10 @@ wss.sendAllButRaw = (data, ignoreClient) => {
   });
 }
 
-wss.updateClientStatus = (ws, status = ws.data.player.status) => {
-  ws.data.player.status = status;
+wss.updateClientStatus = (ws, status = ws.data.game.status) => {
+  ws.data.game.status = status;
   wss.sendAllBut('statusUpdate', {
-    id: ws.data.player.id,
+    id: ws.data.profile.id,
     status,
   }, ws);
 }

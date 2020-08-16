@@ -39,7 +39,7 @@
 .login-container .header .tab hr {
   opacity: 0;
   margin: 0;
-  width: 100%;
+  width: 50%;
   margin-top: 6px;
   border: none;
   height: 4px;
@@ -50,6 +50,7 @@
 
 .login-container .header .tab.current hr {
   opacity: 1;
+  width: 90%;
 }
 
 .login-container .header .tab .text {
@@ -153,7 +154,10 @@
   z-index: 1;
 }
 
-.login-container .input-group .email-input.hide {
+.login-container .input-group:not(.login) #rememberme,
+.login-container .input-group:not(.register) .spinner,
+.login-container .input-group:not(.register) .email-input,
+.login-container .input-group.guest .passw-input {
   display: none;
 }
 
@@ -170,10 +174,6 @@
   display: flex;
   height: 20px;
   transition: .2s;
-}
-
-.login-container .input-group #rememberme.hide {
-  display: none;
 }
 
 .login-container .input-group #rememberme input {
@@ -273,7 +273,6 @@
   position: relative;
 }
 
-.login-container .input-group .spinner.hide, 
 .login-container .input-group .input.empty:not(.focus) .spinner {
   display: none;
 }
