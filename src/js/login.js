@@ -14,12 +14,24 @@ class Login extends LitElement {
     super();
     this.sound = new Audio('/audio/sound1.wav');
     this.sound.volume = .2;
-    this.user = { login: '', password: '' };
+    this.user = { login: '', password: '', email: '', remeber: false };
     this.showPassword = false;
     this.logtype = 'login';
-    api.on('loginNotFound', () => this.error(`${this.user.login} not found`));
-    api.on('incorrectPassword', () => this.error('Password is incorrect'));
-    api.on('loginUnavailable', () => this.error(`${this.user.login} is already taken`));
+    api.on('loginError', (err) => this.error(err));
+    api.on('checkLogin', (has) => {
+      this.logCheck.classList.remove('waiting');
+      if (has || !/^[a-zA-Z1-9_-]*$/.test(this.login.value)) 
+        this.logCheck.classList.add('not-ok');
+      else
+        this.logCheck.classList.add('ok');
+    });
+    api.on('checkMail', (has) => {
+      this.mailCheck.classList.remove('waiting');
+      if (has || !/\S+@\S+\.\S+/.test(this.email.value))
+        this.mailCheck.classList.add('not-ok');
+      else
+        this.mailCheck.classList.add('ok');
+    });
   }
 
   render() {
@@ -37,30 +49,54 @@ class Login extends LitElement {
         </header>
         <span id="error">${this.errorMsg}</span>
         <div class='input-group'>
-          <div class='input login-input'>
+          <div class='input login-input
+            ${/^ *$/.test(this.user.login) ? "empty" : "fill"}'>
             <img src="/assets/icons/person-fill.svg">
-            <input placeholder='Username'
+            <input id='login-inp' spellcheck='false'
              value=${this.user.login} @change=${this.inputLogin}
-             @keydown=${this.moveToPass} @focus=${this.focusInput}
+             @keydown=${this.keyLogin} @focus=${this.focusInput}
              @blur=${this.blurInput}>
+            <span class='placeholder'>Login</span>
+            <div id="logcheck" class='spinner waiting hide'>
+              <div class='double-bounce1'></div>
+              <div class='double-bounce2'></div>
+            </div>
           </div>
-          <div class='input passw-input'>
+
+          <div class='input passw-input
+            ${/^ *$/.test(this.user.password) ? "empty" : "fill"}'>
             <img src="/assets/icons/lock-fill.svg">
-            <input id="passw-inp" type='password' placeholder='Password'
+            <input id="passw-inp" type='password' spellcheck='false'
              value=${this.user.password} @change=${this.inputPassword}
-             @keydown=${this.passLogin} @focus=${this.focusInput}
+             @keydown=${this.keyPassword} @focus=${this.focusInput}
              @blur=${this.blurInput}>
+            <span class='placeholder'>Password</span>
             <span id="eye" @click=${this.showPassw}>
               <img src="/assets/icons/eye-fill.svg">
             </span>
           </div>
 
+          <div class='input email-input 
+            ${/^ *$/.test(this.user.email) ? "empty" : "fill"}'>
+            <img src="/assets/icons/mailbox2.svg">
+            <input id="email-inp" spellcheck='false'
+             value=${this.user.email} @change=${this.inputEmail}
+             @keydown=${this.keyMail} @focus=${this.focusInput}
+             @blur=${this.blurInput}>
+            <span class='placeholder'>Email</span>
+            <div id="mailcheck" class='spinner waiting hide'>
+              <div class='double-bounce1'></div>
+              <div class='double-bounce2'></div>
+            </div>
+          </div>
+
           <label id='rememberme'>
-            <input type='checkbox' checked='checked'>
+            <input @change=${this.checkBox} type='checkbox'>
             <span class='checkmark'></span>
             <span class='text'>Remember me</span>
           </label>
         </div>
+
         <button class='btn btn-cont' @click=${this.continue}>
           ${this.btnText}
         </button> 
@@ -81,27 +117,76 @@ class Login extends LitElement {
     this.err    = this.renderRoot.querySelector('#error');
     this.pass   = this.renderRoot.querySelector('#passw-inp');
     this.eye    = this.renderRoot.querySelector('#eye');
+    this.logCheck  = this.renderRoot.querySelector('#logcheck');
+    this.mailCheck = this.renderRoot.querySelector('#mailcheck');
+    this.email  = this.renderRoot.querySelector('#email-inp');
+    this.emailWrap  = this.renderRoot.querySelector('.email-input');
+    this.login  = this.renderRoot.querySelector('#login-inp');
+    this.emailWrap.classList.add('hide');
     this.curTab = this.logTab;
     this.btnText = "Login";
+
+  }
+
+  checkBox(event) {
+    this.user.remeber = event.target.checked;
   }
 
   focusInput(event) {
     event.target.parentElement.classList.add('focus');
+    this.requestUpdate();
   }
 
   blurInput(event) {
     event.target.parentElement.classList.remove('focus');
+    this.requestUpdate();
   }
 
-  moveToPass(event) {
+  keyLogin(event) {
+    clearTimeout(this.reglogto);
+
     if (event.key === 'Enter')
       this.pass.focus()
+    if (this.logtype === 'register')
+      this.reglogto = 
+        this.checkValid(this.logCheck, 'checkLogin', event);
   }
 
-  passLogin(event) {
+  keyPassword(event) {
     if (event.key === 'Enter') {
       this.user.password = this.pass.value;
+      if (this.logtype === 'register')
+        this.email.focus();
+      else
+        this.continue();
+    }
+  }
+
+  keyMail(event) {
+    clearTimeout(this.regmailto);
+
+    if (event.key === 'Enter') {
+      this.user.email = this.email.value;
       this.continue();
+    }
+    if (this.logtype === 'register')
+      this.regmailto =
+        this.checkValid(this.mailCheck, 'checkMail', event);
+  }
+
+  checkValid(what, serMsg, event) {
+    if (event.key === 'Backspace' || event.key === 'Enter' || (
+          !event.altKey && 
+          !event.ctrlKey && 
+          /^[a-zA-Z1-9_-]$/.test(event.key)
+        )
+    ) {
+      what.classList.remove('not-ok');
+      what.classList.remove('ok');
+      what.classList.add('waiting');
+      return setTimeout(() => {
+        api.sendServer(serMsg, event.target.value);
+      }, 400);
     }
   }
 
@@ -112,11 +197,18 @@ class Login extends LitElement {
   }
 
   inputLogin(event) {
+    event.target.value = event.target.value.trim();
     this.user.login = event.target.value;
   }
 
   inputPassword(event) {
+    event.target.value = event.target.value.trim();
     this.user.password = event.target.value;
+  }
+
+  inputEmail(event) {
+    event.target.value = event.target.value.trim();
+    this.user.email = event.target.value;
   }
 
   tabChange(event) {
@@ -128,25 +220,33 @@ class Login extends LitElement {
       this.rembme.classList.add('hide');
       this.btnText = "Register";
       this.logtype = 'register';
+      this.logCheck.classList.remove('hide');
+      this.mailCheck.classList.remove('hide');
+      this.emailWrap.classList.remove('hide');
+      this.checkValid(this.logCheck, 'checkLogin', 
+        { key: this.user.login[0], target: this.logCheck });
     }
     else {
       this.curTab = this.logTab;
       this.rembme.classList.remove('hide');
       this.btnText = "Login";
       this.logtype = 'login';
+      this.logCheck.classList.add('hide');
+      this.mailCheck.classList.add('hide');
+      this.emailWrap.classList.add('hide');
     }
 
     this.curTab.classList.add('current');
   }
 
-  error(msg) {
+  error(msg, time = 3000) {
     clearTimeout(this.errorTimeout);
     this.errorMsg = msg;
     this.err.classList.add('show');
     this.errorTimeout = setTimeout(() => {
       this.err.classList.remove('show');
       this.errorMsg = undefined;
-    }, 2000);
+    }, time);
   }
 
   continue() {
@@ -158,22 +258,23 @@ class Login extends LitElement {
       this.error('Invalid symbols in login!');
     else if (!/^[a-zA-Z1-9_-]*$/.test(this.user.password))
       this.error('Invalid symbols in password!');
-    else if (this.btnText === 'Register' && this.user.login.toLowerCase() === 'chalker') {
-      setTimeout(() => {
-        if (this.errorMsg) return;
-        this.sound.play();
-        this.renderRoot.querySelector('#popup').classList.add('show');
-        this.renderRoot.querySelector('button').classList.add('popup');
-        this.btnText = 'Ok, no problem'
-      }, 200);
+    else if (this.logtype === 'register') {
+      if (/^ *$/.test(this.user.email))
+        this.error('Input email!');
+      else if (!/\S+@\S+\.\S+/.test(this.user.email))
+        this.error('Invalid email!');
+      else
+        this.sendData();
     }
-    else {
-      api.sendServer('userLogin', { type: this.logtype, user: this.user });
-      api.login = this.user.login;
-      localStorage.setItem('login', api.login);
-    }
+    else 
+      this.sendData();
     
-    
+  }
+
+  sendData() {
+    api.sendServer('userLogin', { type: this.logtype, user: this.user });
+    api.login = this.user.login;
+    localStorage.setItem('login', api.login);
   }
 
   createRenderRoot() { return this }

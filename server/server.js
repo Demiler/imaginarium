@@ -1,12 +1,11 @@
 const WebSocket = require('ws');
-const uuid = require('uuid');
 const { log } = require('./logger.js');
-const { Player }  = require('../src/js/player.js');
-//const { getName } = require('../src/js/utils/names.js');
-const { getColor } = require('../src/js/utils/colors.js');
+const { getColor } = require('./colors.js');
 const { cardsDB } = require('./cards-db.js');
 const { shuffle } = require('./shuffle.js');
 const { clientArray } = require('./client-array.js');
+const { Client } = require('./client.js');
+const md5 = require('md5');
 const http = require('http');
 const finalhandler = require('finalhandler')
 const serveStatic = require('serve-static')
@@ -83,8 +82,40 @@ let app = {
         cards: ws.data.cards,
       });
     });
-  }
+  },
  
+  prepeareTurnCards() {
+    app.cards = activeClients.mapa(cl => {
+      let choose = {
+        owner: cl.player,
+        card: cl.choosenCard,
+        players: [], 
+      }
+      activeClients.forEach(cll => {
+        if (cll.guessedCard === undefined) return;
+        if (cll.guessedCard.id === choose.card.id)
+          choose.players.push(cll.player);
+      });
+
+      if (cl.player.id !== app.leader.player.id) {
+        cl.player.score += choose.players.length;
+        if (cl.guessedCard.id === app.leader.choosenCard.id)
+          cl.player.score += 3;
+      }
+      else if (choose.players.length + 1 !== activeClients.length)
+        cl.player.score += choose.players.length;
+
+      return choose;
+    });
+    wss.sendAll('turnResults', app.cards);
+    wss.sendAll('updateScore', activeClients.mapa(cl => {
+      return {
+        id: cl.player.id,
+        score: cl.player.score,
+      }
+    }));
+    setTimeout(() => app.newTurn(), 6000);
+  },
 }
 //==========================HANDLERS============================//
 wss.handlers = new Map();
@@ -99,9 +130,9 @@ wss.handleRequest = (ws, data) => {
 }
 
 //wss.handlers.set('connected', (ws, id) => handleClient(ws, id));
-wss.handlers.set('connected', (ws, login) => {
-  if (clientBase.has(login))
-    handleClient(ws, login);
+wss.handlers.set('connected', (ws, id) => {
+  if (clientBase.has(id))
+    handleClient(ws, id);
   else
     ws.say('login');
 });
@@ -140,38 +171,8 @@ wss.handlers.set('guessedCard', (ws, guessedCard) => {
     return rp + (cl.guessedCard !== undefined);
   }, 0);
 
-  if (readyPlayers + 1 === activeClients.length) {
-    app.cards = activeClients.mapa(cl => {
-      let choose = {
-        owner: cl.player,
-        card: cl.choosenCard,
-        players: [], 
-      }
-      activeClients.forEach(cll => {
-        if (cll.guessedCard === undefined) return;
-        if (cll.guessedCard.id === choose.card.id)
-          choose.players.push(cll.player);
-      });
-
-      if (cl.player.id !== app.leader.player.id) {
-        cl.player.score += choose.players.length;
-        if (cl.guessedCard.id === app.leader.choosenCard.id)
-          cl.player.score += 3;
-      }
-      else if (choose.players.length + 1 !== activeClients.length)
-        cl.player.score += choose.players.length;
-
-      return choose;
-    });
-    wss.sendAll('turnResults', app.cards);
-    wss.sendAll('updateScore', activeClients.mapa(cl => {
-      return {
-        id: cl.player.id,
-        score: cl.player.score,
-      }
-    }));
-    setTimeout(() => app.newTurn(), 6000);
-  }
+  if (readyPlayers + 1 === activeClients.length) 
+    app.prepeareTurnCards();
 });
 
 wss.handlers.set('removeCard', (ws) => {
@@ -183,33 +184,29 @@ wss.handlers.set('IWantNewColor', (ws) => {
   wss.sendAll('colorUpdate', { id: ws.data.player.id, color: ws.data.player.color });
 });
 
-wss.handlers.set('userLogin', (ws, data) => {
-  data = JSON.parse(data);
-  log.do('sclient', `Got new login ${data.user.login}`);
+wss.handlers.set('checkLogin', (ws, login) => {
+  if (login === '') return;
+  ws.say('checkLogin', clientBase.has(login));
+});
 
-  if (data.type === 'register') {
-    if (clientBase.has(data.user.login))
-      ws.say('loginUnavailable');
-    else {
-      log.do('sclient', `Set new client`);
-      clientBase.set(data.user.login, data.user.password);
-      handleClient(ws, data.user.login);
-    }
-  }
-  else if (data.type === 'login') {
-    let client = clientBase.get(data.user.login)
-    if (!client)
-      ws.say('loginNotFound');
-    else if (data.user.password !== client)
-      ws.say('incorrectPassword');
-    else
-      handleClient(ws, data.user.login);
-  }
-  else log.do('serror', 'Unknown type of userLogin');
+wss.handlers.set('checkMail', (ws, mail) => {
+  if (mail === '') return;
+  ws.say('checkMail', clientBase.has(md5(mail)));
+});
+
+wss.handlers.set('userLogin', (ws, data) => {
+  log.do('shandler', `Recieve handler 'userLogin' with '${data}'`);
+  if (!data) return ws.say('incorrectData');
+
+  data = JSON.parse(data);
+  //if (!data||!data.user||!data.user.login||!data.user.password||!data.user.remeber) 
+    //return ws.say('incorrectData');
+  handleLogin(ws, data);
 });
 
 //======================CONNECTION SETUP========================//
 wss.on('connection', ws => {
+  log.do('sclient', 'New client connected');
   ws.isAlive = true;    //used for ping-pong
   ws.isActive = false;  //used for detecting same client 
 
@@ -250,45 +247,45 @@ wss.pinger = setInterval(() => {
 }, 10000);
 
 //=======================HANDLE CLIENT==========================//
-const handleClient = (ws, login) => {
-  if (activeClients.has(login) && !lostClients.has(login)) {
+const handleClient = (ws, client) => {
+  let { id } = client.profile;
+  if (activeClients.has(id) && !lostClients.has(id)) {
     log.do('sclient', 'Same client opened game in another tab');
     ws.say('closeThisTab');
     return;
   }
 
-  let lostClient = lostClients.get(login);
-  log.do('sclient',
-    `Client login recieved: ${login}. Is client found: ${lostClient !== undefined}`);
+  ws.data = client;
+  //let lostClient = lostClients.get(data.id);
+  //log.do('sclient',
+    //`Client id recieved: ${data.id}. Is client found: ${lostClient !== undefined}`);
 
-  if (lostClient !== undefined) {
-    ws.data = lostClient;
-    lostClients.delete(login);
-    clearTimeout(ws.data.timeouts.offline);
-    clearTimeout(ws.data.timeouts.remove);
-    clearTimeout(ws.data.timeouts.delete);
+  //if (lostClient !== undefined) {
+    //ws.data = lostClient;
+    //lostClients.delete(id);
+    //ws.data.timeouts.clearAll();
 
-    if (ws.data.removed) {
-      ws.data.player.status = ws.data.player.statusBeforeOffline;
-      wss.sendAllBut('addClient', ws.data.player, ws);
-    }
-    else if (ws.data.player.status === 'offline')
-      wss.updateClientStatus(ws, ws.data.player.statusBeforeOffline);
+    //if (ws.data.removed) {
+      //ws.data.player.status = ws.data.player.statusBeforeOffline;
+      //wss.sendAllBut('addClient', ws.data.player, ws);
+    //}
+    //else if (ws.data.player.status === 'offline')
+      //wss.updateClientStatus(ws, ws.data.player.statusBeforeOffline);
     
-    ws.data.removed = false;
-    log.do('sclient', `Resurrecting old player. ${ws.data.player.login}`);
-  }
-  else {
-    ws.data = {
-      removed: false,
-      player: new Player(login, uuid.v4(), login, getColor()),
-      cards: [],
-      timeouts: {},
-    };
-    wss.sendAllBut('addClient', ws.data.player, ws);
-    log.do('sclient', 
-      `Creating new player ${ws.data.player.id}. ${ws.data.player.login}`);
-  }
+    //ws.data.removed = false;
+    //log.do('sclient', `Resurrecting old player. ${ws.data.player.login}`);
+  //}
+  //else {
+    //ws.data = {
+      //removed: false,
+      //player: new Player(login, uuid.v4(), login, getColor()),
+      //cards: [],
+      //timeouts: {},
+    //};
+    //wss.sendAllBut('addClient', ws.data.player, ws);
+    //log.do('sclient', 
+      //`Creating new player ${ws.data.player.id}. ${ws.data.player.login}`);
+  //}
 
   ws.isActive = true;
   activeClients.set(ws.data);
@@ -327,6 +324,49 @@ const handleDisconnect = (ws) => {
   }, 30000);
 }
 
+//=======================HANDLE LOGIN===========================//
+const handleLogin = (ws, data) => {
+  log.do('slogin', `Got new login ${data.user.login}`);
+
+  if (data.type === 'register') {
+    if (clientBase.has(data.user.login)) {
+      ws.say('loginError', `${data.user.login} is already taken`);
+      log.do('slogin', `Attempt to take existent login`);
+    }
+    else if (clientBase.has(md5(data.user.email))) {
+      ws.say('loginError', 'This email is taken');
+      log.do('slogin', `Got taken email`);
+    }
+    else {
+      log.do('slogin', `Set new client`);
+      const newClient = new Client();
+      newClient.generate(data.user.login, data.user.email);
+      clientBase.set(newClient.profile.login, newClient);
+      clientBase.set(newClient.profile.id, newClient);
+
+      handleClient(ws, newClient);
+    }
+  }
+  else if (data.type === 'login') {
+    let client = clientBase.get(data.user.login)
+    if (!client) {
+      ws.say('loginError', `${data.user.login} is not found`);
+      log.do('slogin', `Got uknown login`);
+    }
+    else if (data.user.password !== client) {
+      ws.say('loginError', 'Password is incorrect');
+      log.do('slogin', `Got incorrect password`);
+    }
+    else {
+      if (!data.user.remeber)
+        ;//start death timeout
+      
+      handleClient(ws, client);
+      log.do('slogin', `User ${data.user.login} has loged in`);
+    }
+  }
+  else log.do('serror', 'Unknown type of userLogin');
+}
 //==========================SENDERS=============================//
 wss.sendAllBut = (type, data, ignoreClient) => {
   wss.clients.forEach(client => {

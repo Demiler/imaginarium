@@ -47,7 +47,7 @@ class Api {
       console.log('WebSocket is open now');
       this.tries = 0;
       clearInterval(this.reconnect);
-      this.sendServer('connected', localStorage.getItem('login'));
+      this.sendServer('connected', localStorage.getItem('id'));
     }
 
     this.ws.onclose = () => {

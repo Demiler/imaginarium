@@ -1,32 +1,32 @@
 class clientArray extends Array {
-  has(login) { //retun if player with this login contains in array
+  has(id) { //retun if player with this id contains in array
     return this.find(
-      cl => cl.player.login === login
+      cl => cl.profile.id === id
       ) ? true : false;
   }
 
-  findInd(login) { //returns index by client login
+  findInd(id) { //returns index by client id
     return this.findIndex(
-      cl => cl.player.login === login
+      cl => cl.profile.id === id
     );
   }
 
-  findLogin(login) { //returns client by login
+  findLogin(id) { //returns client by id
     return this.find(
-      cl => cl.player.login === login
+      cl => cl.profile.id === id
     );
   }
 
   set(client) { //updates or sets data
-    const ind = this.findInd(client.player.login);
+    const ind = this.findInd(client.profile.id);
     if (ind !== -1)
       this[ind] = client;
     else
       this.push(client);
   }
 
-  delete(login) { //not efficient but for small arrys ok.
-    const ind = this.findInd(login);
+  delete(id) { //not efficient but for small arrys ok.
+    const ind = this.findInd(id);
     if (ind === -1) return undefined;
     return this.splice(ind, 1);
   }
@@ -36,7 +36,7 @@ class clientArray extends Array {
   }
 
   toJSON() {
-    return this.map(cl => cl.player);
+    return this.map(cl => cl.getSendable());
   }
 }
 
