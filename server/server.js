@@ -240,13 +240,9 @@ wss.on('connection', ws => {
   ws.say = (type, data) => ws.send(JSON.stringify({ type, data }));
 
   ws.on('message', (data) => {
-<<<<<<< HEAD
-    if (data.startsWith('server'))
-=======
     if (!ws.isActive && data.startsWith('server userLogin'))
       wss.handlers.get('userLogin')(ws, data.substr(17)); //17 = 'server userLogin '.length
     else if (data.startsWith('server'))
->>>>>>> master
       wss.handleRequest(ws, data.substr(7)); //7 = 'wss '.length
     else if (ws.isActive)
       wss.sendAllButRaw(data, ws)
