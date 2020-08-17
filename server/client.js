@@ -5,22 +5,22 @@ const { getColor } = require('./colors.js');
 class Client {
   constructor() {
     this.profile = {
-      id: '',
-      name: '',
-      login: '',
-      email: '',
-      password: '',
+      id: undefined,
+      name: undefined,
+      login: undefined,
+      email: undefined,
+      password: undefined,
       avatar: {
-        img: '',
-        color: '',
+        img: undefined,
+        color: undefined,
       }
     }
     this.game = {
       score: 0,
       cards: [],
-      status: '',
-      guessed: '',
-      choosen: '',
+      status: 'not-ready',
+      guessed: undefined,
+      choosen: undefined,
     };
     this.timeouts = {
       offline: {},

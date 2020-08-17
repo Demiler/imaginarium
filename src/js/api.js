@@ -103,6 +103,7 @@ api.on('setup', (data) => {
     api.leader.guess = data.leaderGuess;
   }
   api.cards = data.appCards;
+  localStorage.setItem('id', data.id);
   api.publish('setup ready', data.appState);
 });
 

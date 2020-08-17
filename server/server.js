@@ -30,8 +30,20 @@ server.listen(process.env.PORT || 8081);
 //===========================CONFIG=============================//
 
 let clientBase = new Map();
+let guestsBase = new Map();
 let activeClients = new clientArray();
 let lostClients = new Map();
+
+
+//let debugClients = new Array(2)
+//let debugId = ['efae56fb618850255232b26ebe92c65d', 'c620c0203f92972e51dbd5484a6c6638'];
+//for (let i = 0; i < debugClients.length; i++) {
+  //debugClients[i] = new Client()
+  //debugClients[i].generate('Guest' + i, "mail@mail.mail" + i);
+  //debugClients[i].profile.id = debugId[i];
+  //guestsBase.set(debugClients[i].profile.id, debugClients[i]);
+//}
+
 
 activeClients.updateEveryoneStatus = (status, leaderStatus) => {
  activeClients.forEach(client => {
@@ -59,13 +71,21 @@ let app = {
     app.leaderGuess = '';
     let newCards = cardsDB.getNCards(activeClients.length);
     wss.clients.forEach(ws => {
+      const newCard = newCards.pop();
       ws.say('newTurn', {
         leader: app.leaderId,
-        addCard: newCards.pop(),
-        removeCard: ws.data.choosenCard,
+        addCard: newCard,
+        removeCard: ws.data.game.choosen,
       });
-      ws.data.choosenCard = undefined;
-      ws.data.guessedCard = undefined;
+
+      const { cards } = ws.data.game;
+      const delFrom = cards.findIndex(
+        card => card.id === ws.data.game.choosen.id);
+      cards.splice(delFrom, 1);
+      cards.push(newCard);
+
+      ws.data.game.choosen = undefined;
+      ws.data.game.guessed = undefined;
     });
     activeClients.updateEveryoneStatus('waiting-for-leader', 'guessing');
   },
@@ -76,12 +96,12 @@ let app = {
     app.leader = activeClients[app.leaderId];
     activeClients.updateEveryoneStatus('waiting-for-leader', 'guessing');
     wss.clients.forEach(ws => {
-      ws.data.cards = cardsDB.getNCards(6);
+      ws.data.game.cards = cardsDB.getNCards(6);
       ws.say('gameInit', {
-        id: ws.data.player.id,
+        id: ws.data.profile.id,
         order: activeClients,
         leader: app.leaderId,
-        cards: ws.data.cards,
+        cards: ws.data.game.cards,
       });
     });
   },
@@ -89,31 +109,31 @@ let app = {
   prepeareTurnCards() {
     app.cards = activeClients.mapa(cl => {
       let choose = {
-        owner: cl.player,
-        card: cl.choosenCard,
+        owner: cl.getSendable(),
+        card: cl.game.choosen,
         players: [], 
       }
       activeClients.forEach(cll => {
-        if (cll.guessedCard === undefined) return;
-        if (cll.guessedCard.id === choose.card.id)
-          choose.players.push(cll.player);
+        if (cll.game.guessed === undefined) return;
+        if (cll.game.guessed.id === choose.card.id)
+          choose.players.push(cll.getSendable());
       });
 
-      if (cl.player.id !== app.leader.player.id) {
-        cl.player.score += choose.players.length;
-        if (cl.guessedCard.id === app.leader.choosenCard.id)
-          cl.player.score += 3;
+      if (cl.profile.id !== app.leader.profile.id) {
+        cl.game.score += choose.players.length;
+        if (cl.game.guessed.id === app.leader.game.choosen.id)
+          cl.game.score += 3;
       }
       else if (choose.players.length + 1 !== activeClients.length)
-        cl.player.score += choose.players.length;
+        cl.game.score += choose.players.length;
 
       return choose;
     });
     wss.sendAll('turnResults', app.cards);
     wss.sendAll('updateScore', activeClients.mapa(cl => {
       return {
-        id: cl.player.id,
-        score: cl.player.score,
+        id: cl.profile.id,
+        score: cl.game.score,
       }
     }));
     setTimeout(() => app.newTurn(), 6000);
@@ -131,13 +151,17 @@ wss.handleRequest = (ws, data) => {
   else log.do('serror', `Handler '${type}' not found`);
 }
 
-//wss.handlers.set('connected', (ws, id) => handleClient(ws, id));
 wss.handlers.set('connected', (ws, id) => {
   const client = clientBase.get(id);
   if (client)
     handleClient(ws, client);
-  else
-    ws.say('login');
+  else {
+    const guest = guestsBase.get(id);
+    if (guest)
+      handleClient(ws, guest);
+    else
+      ws.say('login');
+  }
 });
 
 wss.handlers.set('lobbyUpdate', (ws, status) => {
@@ -158,20 +182,20 @@ wss.handlers.set('leaderGuess', (ws, guess) => {
 });
 
 wss.handlers.set('choosenCard', (ws, choosenCard) => {
-  ws.data.choosenCard = JSON.parse(choosenCard);
-  if (activeClients.every(cl => cl.choosenCard !== undefined)) {
-    app.cards = activeClients.mapa(cl => cl.choosenCard);
+  ws.data.game.choosen = JSON.parse(choosenCard);
+  if (activeClients.every(cl => cl.game.choosen !== undefined)) {
+    app.cards = activeClients.mapa(cl => cl.game.choosen);
     activeClients.updateEveryoneStatus('thinking', 'waiting');
     wss.sendAll('guessLeaderCard', app.cards);
   }
-  else if (ws.data.player.id !== app.leader.player.id)
+  else if (ws.data.profile.id !== app.leader.profile.id)
     wss.updateClientStatus(ws, 'waiting-for-others');
 });
 
 wss.handlers.set('guessedCard', (ws, guessedCard) => {
-  ws.data.guessedCard = JSON.parse(guessedCard);
+  ws.data.game.guessed = JSON.parse(guessedCard);
   const readyPlayers = activeClients.reduce((rp, cl) => {
-    return rp + (cl.guessedCard !== undefined);
+    return rp + (cl.game.guessed !== undefined);
   }, 0);
 
   if (readyPlayers + 1 === activeClients.length) 
@@ -262,7 +286,7 @@ const handleClient = (ws, client) => {
 
   ws.data = client;
   log.do('sclient',
-    `Client recieved: ${client.profile.login}. Is client found: ${isLost}`);
+    `Client recieved: ${client.profile.login}. Is lost found: ${isLost}`);
 
   if (isLost) {
     lostClients.delete(id);
@@ -306,7 +330,7 @@ const handleDisconnect = (ws) => {
   }, 400);
 
   ws.data.timeouts.remove = setTimeout(() => { 
-    if (!lostClients.has(ws.data.profile.login)) return;
+    if (!lostClients.has(ws.data.profile.id)) return;
     ws.data.removed = true;
     wss.sendAllBut('removeClient', ws.data.profile.id, ws);
     activeClients.delete(ws.data.profile.id);
@@ -362,13 +386,15 @@ const handleLogin = (ws, data) => {
     }
   }
   else if (data.type === 'guest') {
-    let client = new Client();
-    client.generate(uuid.v4(), "none");
-    client.profile.name = data.user.login;
+    let guest = new Client();
+    guest.generate(uuid.v4(), "none" + Math.random());
+    guest.profile.name = data.user.login;
+    guestsBase.set(guest.profile.id, guest);
     log.do('slogin', `Guest ${data.user.login} has been created`);
-    handleClient(ws, client);
+    handleClient(ws, guest);
   }
   else log.do('serror', 'Unknown type of userLogin');
+  log.do('slogin');
 }
 //==========================SENDERS=============================//
 wss.sendAllBut = (type, data, ignoreClient) => {
