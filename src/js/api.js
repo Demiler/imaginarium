@@ -1,7 +1,7 @@
 const { Player } = require('./player.js');
 const getIP = () => {
   return (document.location.href !== 'https://ma-chose.herokuapp.com/') ?
-    'wss://localhost:8081' : 'wss://ma-chose.herokuapp.com';
+    'ws://localhost:8081' : 'wss://ma-chose.herokuapp.com';
 }
 
 class Api {
@@ -71,7 +71,6 @@ class Api {
     }
 
     this.ws.onmessage = (event) => {
-      console.log(event);
       let data = JSON.parse(event.data);
       if (this.handlers.has(data.type)) 
         this.handlers.get(data.type).forEach(handler => handler(data.data));

@@ -2,7 +2,7 @@ im-lobby {
   background-color: #212121;
 }
 
-header {
+im-lobby header {
   display: flex;
   height: 30px;
   width: auto;
@@ -12,23 +12,23 @@ header {
   margin-bottom: 20px;
 }
 
-header .name-tag {
+im-lobby header .name-tag {
   margin-right: auto;
 }
 
-header .settings, header .sound {
+im-lobby header .settings, .lobby-container header .sound {
   margin-right: 10px;
   background-color: #212131;
   padding: 3px;
   border-radius: 5px;
 }
 
-header .player {
+im-lobby header .player {
   display: flex;
   align-items: center;
 }
 
-header .player .player-image {
+im-lobby header .player .player-image {
   width: 20px;
   height: 20px;
   border-radius: 20px;
@@ -41,7 +41,7 @@ header .player .player-image {
   margin-right: auto;
 }
 
-h1 {
+.lobby-container h1 {
   text-align: center;
 }
 

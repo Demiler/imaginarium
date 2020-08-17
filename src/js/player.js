@@ -3,25 +3,22 @@ class Player {
     return {
       id: { type: String },
       name: { type: String },
-      color: { type: String },
-      icon: { type: String },
+      avatar: { type: Object },
       score: { type: Number },
       status: { type: String },
     };
   }
 
   constructor(
-    id, 
+    id = '1',
     name = 'guest', 
-    color = '#232323',
-    icon = '0.png', 
+    avatar = { img: '0.png', color: "#232323" },
     status = 'not-ready', 
     score = 0
   ) {
     this.id = id;
     this.name = name;
-    this.color = color;
-    this.icon = icon;
+    this.avatar = avatar;
     this.status = status;
     this.score = score;
   }
@@ -30,8 +27,7 @@ class Player {
     return { 
       id: this.id,
       name: this.name, 
-      color: this.color,
-      icon: this.icon, 
+      avatar: this.avatar, 
       status: this.status, 
       score: this.score 
     };
@@ -41,8 +37,7 @@ class Player {
     return new Player(
       data.id,
       data.name, 
-      data.color,
-      data.icon, 
+      data.avatar, 
       data.status, 
       data.score
   )}

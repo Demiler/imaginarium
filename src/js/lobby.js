@@ -2,7 +2,7 @@ import { LitElement, html } from 'lit-element'
 import '../css/lobby-style.css'
 import { api } from './api';
 
-const avPath = '../../img/avatars';
+//const avPath = '../../img/avatars';
 
 class Lobby extends LitElement {
   static get properties() {
@@ -27,8 +27,9 @@ class Lobby extends LitElement {
       <header>
         <span class="name-tag">Imaginarium</span>
         <div class="player">
-          <img class="player-image" style="background-color: ${api.host.color}" 
-            src="${avPath}/${api.host.icon}" @click=${() => api.sendServer('IWantNewColor')}>
+          <img class="player-image" style="background-color: ${api.host.avatar.color}" 
+            src="${api.host.avatar.img}" 
+            @click=${() => api.sendServer('IWantNewColor')}>
           <span class="player-name">${api.host.name}</span>
         </div>
       </header>
@@ -39,7 +40,8 @@ class Lobby extends LitElement {
         <div class="player-list">
           ${api.players.map(player => html`
             <div class="player ${player.status}">
-              <img class="player-image" style="background-color: ${player.color}" src="${avPath}/${player.icon}">
+              <img class="player-image" style="background-color: ${player.avatar.color}" 
+              src="${player.avatar.img}">
               <span class="player-name">${player.name}</span>
             </div>
           `)}

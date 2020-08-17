@@ -1,0 +1,334 @@
+.login-container img {
+  user-select: none;
+}
+
+.login-container { 
+  margin: auto;
+  margin-top: 100px;
+  width: 300px;
+  height: 300px;
+  background-color: #34344c;
+  padding: 8px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-container .header {
+  display: flex;
+  justify-content: space-around;
+  /*margin-top: 10px;*/
+  /*margin-bottom: 2px;*/
+  border-bottom: 2px solid #272739;
+}
+
+.login-container .header .tab {
+  width: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  padding-top: 5px;
+  outline: none;
+}
+
+.login-container .header .tab:not(.current):hover .underline {
+  opacity: .5;
+}
+
+.login-container .header .tab hr {
+  opacity: 0;
+  margin: 0;
+  width: 50%;
+  margin-top: 6px;
+  border: none;
+  height: 4px;
+  border-radius: 5px 5px 0 0;
+  background-color: #525279;
+  transition: .2s;
+}
+
+.login-container .header .tab.current hr {
+  opacity: 1;
+  width: 90%;
+}
+
+.login-container .header .tab .text {
+  user-select: none;
+}
+
+.login-container #error {
+  transition: .2s;
+  font-size: 13px;
+  background-color: #ec353538;
+  text-align: center;
+  color: #ec7b7b;
+  border-radius: 0 0 5px 5px;
+  height: 0;
+  opacity: 0;
+  padding: 0;
+}
+
+.login-container #error.show {
+  padding: 4px 10px;
+  height: 20px;
+  opacity: 1;
+}
+
+.login-container .input-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin-top: 20px;
+}
+
+.login-container .input-group .input {
+  margin-bottom: 15px;
+  background-color: #2b2b3f;
+  height: 25px;
+  border-radius: 5px;
+  transition: .2s;
+  box-shadow: 0 0 0px 0px #000000b3;
+  padding: 2px 7px;
+  display: flex;
+  align-items: center;
+}
+
+.login-container .input-group .placeholder {
+  position: absolute;
+  left: 29px;
+  color: #7f7f7f;
+  font-size: 14px;
+  transition: 0.2s;
+  user-select: none;
+  padding: 0 2px; 
+  border-radius: 5px;
+}
+
+.login-container .input-group .fill .placeholder,
+.login-container .input-group .focus .placeholder {
+  background-color: #35354f;
+  transform: translateY(-15px);
+  font-size: 10px;
+}
+
+.login-container .input-group .input > img {
+  filter: invert(1);
+  margin-right: 10px;
+}
+
+.login-container .input-group .input #eye {
+  display: flex;
+  position: relative;
+}
+
+.login-container .input-group .input #eye:after {
+  content: ' ';
+  width: 120%;
+  height: 2px;
+  background: linear-gradient(0, #ffffff 50%, #2b2b3f 50%);
+  position: absolute;
+  left: -10%;
+  top: calc(50% - 1px);
+  display: block;
+  transform: rotate(45deg);
+  transition: .2s;
+}
+
+.login-container .input-group .input #eye.slash:after {
+  opacity: 0;
+}
+
+.login-container .input-group .input #eye img {
+  filter: invert(1);
+}
+
+.login-container .input-group .input input {
+  border: none;
+  color: #eee;
+  outline: none;
+  padding: 0;
+  background-color: transparent;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.login-container .input-group:not(.login) #rememberme,
+.login-container .input-group:not(.register) .spinner,
+.login-container .input-group:not(.register) .email-input,
+.login-container .input-group.guest .passw-input {
+  display: none;
+}
+
+.login-container .input-group .input.focus {
+  box-shadow: 0 0 3px 1px #000000b3;
+  background-color: #35354f;
+}
+
+.login-container .input-group #rememberme {
+  /*margin-top: 30px;*/
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  height: 20px;
+  transition: .2s;
+}
+
+.login-container .input-group #rememberme input {
+  margin: 0;
+  opacity: 0;
+}
+
+.login-container .input-group #rememberme .checkmark {
+  position: absolute;
+  top: calc(50% - 9px);
+  left: 0;
+  width: 18px;
+  height: 18px;
+  background-color: #2b2b3f;
+  border-radius: 3px;
+  transition: .2s;
+}
+
+.login-container .input-group #rememberme .text {
+  margin-left: 15px;
+  line-height: 20px;
+  color: #888;
+  font-size: 15px;
+}
+
+.login-container .input-group #rememberme input:checked ~ .checkmark {
+  background-color: #525279;
+}
+
+/*.login-container .input-group #rememberme input:focus ~ .checkmark,*/
+.login-container .input-group #rememberme input:hover ~ .checkmark {
+  background-color: #626289;
+}
+
+.login-container .input-group #rememberme input:checked ~ .checkmark:after {
+  content: url("/assets/icons/check2.svg");
+  filter: invert(.8);
+  position: absolute;
+  top: calc(50% - 8px);
+  left: calc(50% - 8px);
+}
+
+.login-container .btn-cont {
+  margin-top: auto;
+  margin-bottom: 10px;
+  width: 150px;
+  align-self: center;
+  height: 40px;
+  border: none;
+  border-radius: 50px;
+  font-size: 20px;
+  color: #e2e3e3;
+  background-color: #525279;
+  transition: .2s;
+  user-select: nonee
+}
+
+/*.login-container .btn-cont:focus,*/
+.login-container .btn-cont:hover {
+  filter: brightness(1.2);
+}
+
+.login-container #popup span {
+  padding: 77px;
+  font-size: 37px;
+  text-align: justify;
+}
+
+.login-container #popup {
+  display: none;
+}
+
+.login-container #popup.show {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: black;
+  display: flex;
+  align-items: center;
+}
+
+.login-container button.popup {
+  position: fixed;
+  bottom: 0;
+  background-color: #a61a1a;
+  z-index: 2;
+  border-radius: 5px;
+}
+
+/*===========================log check===========================*/
+.login-container .input-group .spinner {
+  width: 20px;
+  height: 20px;
+  position: relative;
+}
+
+.login-container .input-group .input.empty:not(.focus) .spinner {
+  display: none;
+}
+
+.login-container .input-group .spinner .double-bounce1,
+.login-container .input-group .spinner .double-bounce2 {
+  width: inherit;
+  height: inherit;
+  border-radius: 50%;
+  background-color: #525279;
+  opacity: 0.6;
+  position: absolute;
+  top: 0;
+  left: 0;
+  
+  /*-webkit-animation: sk-bounce 2.0s infinite ease-in-out;*/
+  animation: sk-bounce 2.0s infinite ease-in-out;
+}
+
+.login-container .input-group .spinner .double-bounce2 {
+  -webkit-animation-delay: -1.0s;
+  animation-delay: -1.0s;
+}
+
+.login-container .input-group .spinner:not(.waiting) .double-bounce2 {
+  display: none;
+}
+
+.login-container .input-group .spinner:not(.waiting) .double-bounce1 {
+  animation: none;
+  background-repeat: no-repeat;
+  background-size: inherit;
+  background-position: 50%;
+}
+
+.login-container .input-group .spinner.ok .double-bounce1 {
+  background-color: #24ee24;
+  background-image: url('/assets/icons/check2.svg');
+}
+
+.login-container .input-group .spinner.not-ok .double-bounce1 {
+  background-color: #e62c2c;
+  background-image: url('/assets/icons/x.svg');
+}
+
+@-webkit-keyframes sk-bounce {
+  0%, 100% { -webkit-transform: scale(0.0) }
+  50% { -webkit-transform: scale(1.0) }
+}
+
+@keyframes sk-bounce {
+  0%, 100% { 
+    transform: scale(1.0);
+    -webkit-transform: scale(1.0);
+  } 50% { 
+    transform: scale(0.2);
+    -webkit-transform: scale(0.2);
+  }
+}

@@ -1,18 +1,19 @@
 const WebSocket = require('ws');
-const uuid = require('uuid');
 const { log } = require('./logger.js');
-const { Player }  = require('../src/js/player.js');
-const { getName } = require('../src/js/utils/names.js');
-const { getColor } = require('../src/js/utils/colors.js');
+const { getColor } = require('./colors.js');
 const { cardsDB } = require('./cards-db.js');
 const { shuffle } = require('./shuffle.js');
 const { clientArray } = require('./client-array.js');
+const { Client } = require('./client.js');
+const md5 = require('md5');
 const http = require('http');
+const uuid = require('uuid');
 const finalhandler = require('finalhandler')
 const serveStatic = require('serve-static')
 
 //============================LOGS==============================//
 log.setLog('spipo', false);
+log.setLog('slogin', true);
 log.setLog('serror', true);
 log.setLog('sclient', true);
 log.setLog('shandler', true);
@@ -28,17 +29,30 @@ server.listen(process.env.PORT || 8081);
 
 //===========================CONFIG=============================//
 
-let clientBase = new clientArray();
+let clientBase = new Map();
+let guestsBase = new Map();
+let activeClients = new clientArray();
 let lostClients = new Map();
 
-clientBase.updateEveryoneStatus = (status, leaderStatus) => {
- clientBase.forEach(client => {
-  if (client.player.status === 'offline')
-    client.player.statusBeforeOffline = status;
+
+//let debugClients = new Array(2)
+//let debugId = ['efae56fb618850255232b26ebe92c65d', 'c620c0203f92972e51dbd5484a6c6638'];
+//for (let i = 0; i < debugClients.length; i++) {
+  //debugClients[i] = new Client()
+  //debugClients[i].generate('Guest' + i, "mail@mail.mail" + i);
+  //debugClients[i].profile.id = debugId[i];
+  //guestsBase.set(debugClients[i].profile.id, debugClients[i]);
+//}
+
+
+activeClients.updateEveryoneStatus = (status, leaderStatus) => {
+ activeClients.forEach(client => {
+  if (client.game.status === 'offline')
+    client.game.statusBeforeOffline = status;
   else
-    client.player.status = status;
+    client.game.status = status;
   });
-  if (leaderStatus) app.leader.player.status = leaderStatus;
+  if (leaderStatus) app.leader.game.status = leaderStatus;
 }
 //============================APP===============================//
 let app = {
@@ -52,38 +66,78 @@ let app = {
   newTurn() {
     app.readyPlayers = 0;
     app.cards = [];
-    app.leaderId = (app.leaderId + 1) % clientBase.length;
-    app.leader = clientBase[app.leaderId];
+    app.leaderId = (app.leaderId + 1) % activeClients.length;
+    app.leader = activeClients[app.leaderId];
     app.leaderGuess = '';
-    let newCards = cardsDB.getNCards(clientBase.length);
+    let newCards = cardsDB.getNCards(activeClients.length);
     wss.clients.forEach(ws => {
+      const newCard = newCards.pop();
       ws.say('newTurn', {
         leader: app.leaderId,
-        addCard: newCards.pop(),
-        removeCard: ws.data.choosenCard,
+        addCard: newCard,
+        removeCard: ws.data.game.choosen,
       });
-      ws.data.choosenCard = undefined;
-      ws.data.guessedCard = undefined;
+
+      const { cards } = ws.data.game;
+      const delFrom = cards.findIndex(
+        card => card.id === ws.data.game.choosen.id);
+      cards.splice(delFrom, 1);
+      cards.push(newCard);
+
+      ws.data.game.choosen = undefined;
+      ws.data.game.guessed = undefined;
     });
-    clientBase.updateEveryoneStatus('waiting-for-leader', 'guessing');
+    activeClients.updateEveryoneStatus('waiting-for-leader', 'guessing');
   },
 
   initGame() {
     app.state = 'game';
-    shuffle(clientBase);
-    app.leader = clientBase[app.leaderId];
-    clientBase.updateEveryoneStatus('waiting-for-leader', 'guessing');
+    shuffle(activeClients);
+    app.leader = activeClients[app.leaderId];
+    activeClients.updateEveryoneStatus('waiting-for-leader', 'guessing');
     wss.clients.forEach(ws => {
-      ws.data.cards = cardsDB.getNCards(6);
+      ws.data.game.cards = cardsDB.getNCards(6);
       ws.say('gameInit', {
-        id: ws.data.player.id,
-        order: clientBase,
+        id: ws.data.profile.id,
+        order: activeClients,
         leader: app.leaderId,
-        cards: ws.data.cards,
+        cards: ws.data.game.cards,
       });
     });
-  }
+  },
  
+  prepeareTurnCards() {
+    app.cards = activeClients.mapa(cl => {
+      let choose = {
+        owner: cl.getSendable(),
+        card: cl.game.choosen,
+        players: [], 
+      }
+      activeClients.forEach(cll => {
+        if (cll.game.guessed === undefined) return;
+        if (cll.game.guessed.id === choose.card.id)
+          choose.players.push(cll.getSendable());
+      });
+
+      if (cl.profile.id !== app.leader.profile.id) {
+        cl.game.score += choose.players.length;
+        if (cl.game.guessed.id === app.leader.game.choosen.id)
+          cl.game.score += 3;
+      }
+      else if (choose.players.length + 1 !== activeClients.length)
+        cl.game.score += choose.players.length;
+
+      return choose;
+    });
+    wss.sendAll('turnResults', app.cards);
+    wss.sendAll('updateScore', activeClients.mapa(cl => {
+      return {
+        id: cl.profile.id,
+        score: cl.game.score,
+      }
+    }));
+    setTimeout(() => app.newTurn(), 6000);
+  },
 }
 //==========================HANDLERS============================//
 wss.handlers = new Map();
@@ -97,11 +151,22 @@ wss.handleRequest = (ws, data) => {
   else log.do('serror', `Handler '${type}' not found`);
 }
 
-wss.handlers.set('connected', (ws, id) => handleClient(ws, id));
+wss.handlers.set('connected', (ws, id) => {
+  const client = clientBase.get(id);
+  if (client)
+    handleClient(ws, client);
+  else {
+    const guest = guestsBase.get(id);
+    if (guest)
+      handleClient(ws, guest);
+    else
+      ws.say('login');
+  }
+});
 
 wss.handlers.set('lobbyUpdate', (ws, status) => {
   wss.updateClientStatus(ws, status);
-  if (clientBase.every(cl => cl.player.status === 'ready')) 
+  if (activeClients.every(cl => cl.game.status === 'ready')) 
     app.initGame();
 });
 
@@ -112,59 +177,29 @@ wss.handlers.set('statusUpdate', (ws, status) => {
 wss.handlers.set('leaderGuess', (ws, guess) => {
   app.leaderGuess = guess;
   wss.sendAllBut('leaderGuess', guess, ws);
-  clientBase.updateEveryoneStatus('picking', 'waiting-for-others');
+  activeClients.updateEveryoneStatus('picking', 'waiting-for-others');
   wss.sendAll('allStatusUpdate', { all: 'picking', leader: 'waiting-for-others' });
 });
 
 wss.handlers.set('choosenCard', (ws, choosenCard) => {
-  ws.data.choosenCard = JSON.parse(choosenCard);
-  if (clientBase.every(cl => cl.choosenCard !== undefined)) {
-    app.cards = clientBase.mapa(cl => cl.choosenCard);
-    clientBase.updateEveryoneStatus('thinking', 'waiting');
+  ws.data.game.choosen = JSON.parse(choosenCard);
+  if (activeClients.every(cl => cl.game.choosen !== undefined)) {
+    app.cards = activeClients.mapa(cl => cl.game.choosen);
+    activeClients.updateEveryoneStatus('thinking', 'waiting');
     wss.sendAll('guessLeaderCard', app.cards);
   }
-  else if (ws.data.player.id !== app.leader.player.id)
+  else if (ws.data.profile.id !== app.leader.profile.id)
     wss.updateClientStatus(ws, 'waiting-for-others');
 });
 
 wss.handlers.set('guessedCard', (ws, guessedCard) => {
-  ws.data.guessedCard = JSON.parse(guessedCard);
-  const readyPlayers = clientBase.reduce((rp, cl) => {
-    return rp + (cl.guessedCard !== undefined);
+  ws.data.game.guessed = JSON.parse(guessedCard);
+  const readyPlayers = activeClients.reduce((rp, cl) => {
+    return rp + (cl.game.guessed !== undefined);
   }, 0);
 
-  if (readyPlayers + 1 === clientBase.length) {
-    app.cards = clientBase.mapa(cl => {
-      let choose = {
-        owner: cl.player,
-        card: cl.choosenCard,
-        players: [], 
-      }
-      clientBase.forEach(cll => {
-        if (cll.guessedCard === undefined) return;
-        if (cll.guessedCard.id === choose.card.id)
-          choose.players.push(cll.player);
-      });
-
-      if (cl.player.id !== app.leader.player.id) {
-        cl.player.score += choose.players.length;
-        if (cl.guessedCard.id === app.leader.choosenCard.id)
-          cl.player.score += 3;
-      }
-      else if (choose.players.length + 1 !== clientBase.length)
-        cl.player.score += choose.players.length;
-
-      return choose;
-    });
-    wss.sendAll('turnResults', app.cards);
-    wss.sendAll('updateScore', clientBase.mapa(cl => {
-      return {
-        id: cl.player.id,
-        score: cl.player.score,
-      }
-    }));
-    setTimeout(() => app.newTurn(), 6000);
-  }
+  if (readyPlayers + 1 === activeClients.length) 
+    app.prepeareTurnCards();
 });
 
 wss.handlers.set('removeCard', (ws) => {
@@ -176,29 +211,56 @@ wss.handlers.set('IWantNewColor', (ws) => {
   wss.sendAll('colorUpdate', { id: ws.data.player.id, color: ws.data.player.color });
 });
 
+wss.handlers.set('checkLogin', (ws, login) => {
+  if (login === '') return;
+  ws.say('checkLogin', clientBase.has(login));
+});
+
+wss.handlers.set('checkMail', (ws, mail) => {
+  if (mail === '') return;
+  ws.say('checkMail', clientBase.has(md5(mail)));
+});
+
+wss.handlers.set('userLogin', (ws, data) => {
+  log.do('shandler', `Recieve handler 'userLogin' with '${data}'`);
+  if (!data) return ws.say('incorrectData');
+
+  data = JSON.parse(data);
+  //if (!data||!data.user||!data.user.login||!data.user.password||!data.user.remeber) 
+    //return ws.say('incorrectData');
+  handleLogin(ws, data);
+});
+
 //======================CONNECTION SETUP========================//
 wss.on('connection', ws => {
+  log.do('sclient', 'New client connected');
   ws.isAlive = true;    //used for ping-pong
   ws.isActive = false;  //used for detecting same client 
 
   ws.say = (type, data) => ws.send(JSON.stringify({ type, data }));
 
   ws.on('message', (data) => {
+<<<<<<< HEAD
     if (data.startsWith('server'))
+=======
+    if (!ws.isActive && data.startsWith('server userLogin'))
+      wss.handlers.get('userLogin')(ws, data.substr(17)); //17 = 'server userLogin '.length
+    else if (data.startsWith('server'))
+>>>>>>> master
       wss.handleRequest(ws, data.substr(7)); //7 = 'wss '.length
-    else
+    else if (ws.isActive)
       wss.sendAllButRaw(data, ws)
   });
 
   ws.on('close', () => {
     if (!ws.isActive) return;
-    log.do('sclient', `Connection lost with ${ws.data.player.name}`);
+    log.do('sclient', `Connection lost with ${ws.data.profile.login}`);
     handleDisconnect(ws);
   });
 
   ws.on('pong', () => {
     ws.isAlive = true;
-    log.do('spipo', 'Cleint pong');
+    log.do('spipo', 'Client pong');
   });
 });
 
@@ -216,52 +278,45 @@ wss.pinger = setInterval(() => {
 }, 10000);
 
 //=======================HANDLE CLIENT==========================//
-const handleClient = (ws, id) => {
-  if (clientBase.has(id) && !lostClients.has(id)) {
+const handleClient = (ws, client) => {
+  const { id } = client.profile;
+  const isLost = lostClients.has(id);
+
+  if (activeClients.has(id) && !isLost) {
     log.do('sclient', 'Same client opened game in another tab');
     ws.say('closeThisTab');
     return;
   }
 
-  let lostClient = lostClients.get(id);
+  ws.data = client;
   log.do('sclient',
-    `Client id recieved: ${id}. Is client found: ${lostClient !== undefined}`);
+    `Client recieved: ${client.profile.login}. Is lost found: ${isLost}`);
 
-  if (lostClient !== undefined) {
-    ws.data = lostClient;
+  if (isLost) {
     lostClients.delete(id);
-    clearTimeout(ws.data.timeouts.offline);
-    clearTimeout(ws.data.timeouts.remove);
-    clearTimeout(ws.data.timeouts.delete);
+    client.timeouts.clearAll();
 
-    if (ws.data.removed) {
-      ws.data.player.status = ws.data.player.statusBeforeOffline;
-      wss.sendAllBut('addClient', ws.data.player, ws);
-    }
-    else if (ws.data.player.status === 'offline')
-      wss.updateClientStatus(ws, ws.data.player.statusBeforeOffline);
-    
-    ws.data.removed = false;
-    log.do('sclient', `Resurrecting old player. ${ws.data.player.name}`);
+    if (client.removed) 
+      client.game.status = client.game.statusBeforeOffline;
+    else if (client.game.status === 'offline')
+      wss.updateClientStatus(ws, client.game.statusBeforeOffline);
+
+    client.removed = false;
+    log.do('sclient', `Resurrecting old player. ${client.profile.login}`);
   }
   else {
-    ws.data = {
-      removed: false,
-      player: new Player(uuid.v4(), getName(), getColor()),
-      cards: [],
-      timeouts: {},
-    };
-    wss.sendAllBut('addClient', ws.data.player, ws);
-    log.do('sclient', `Creating new player ${ws.data.player.id}. ${ws.data.player.name}`);
+    wss.sendAllBut('addClient', client.getSendable());
+    log.do('sclient', 
+      `Adding new player ${client.profile.id}. ${client.profile.login}`);
   }
 
   ws.isActive = true;
-  clientBase.set(ws.data);
+  activeClients.set(ws.data);
 
   ws.say('setup', {
-    players:      clientBase,
-    cards:        ws.data.cards,
-    id:           ws.data.player.id,
+    players:      activeClients,
+    cards:        client.game.cards,
+    id:           client.profile.id,
     appState:     app.state,
     leader:       app.leaderId,
     leaderGuess:  app.leaderGuess,
@@ -271,27 +326,80 @@ const handleClient = (ws, id) => {
 }
 //=====================HANDLE DISCONNECT========================//
 const handleDisconnect = (ws) => {
-  lostClients.set(ws.data.player.id, ws.data);
+  lostClients.set(ws.data.profile.id, ws.data);
 
   ws.data.timeouts.offline = setTimeout(() => {
-    ws.data.player.statusBeforeOffline = ws.data.player.status;
+    ws.data.game.statusBeforeOffline = ws.data.game.status;
     wss.updateClientStatus(ws, 'offline');
   }, 400);
 
   ws.data.timeouts.remove = setTimeout(() => { 
-    if (!lostClients.has(ws.data.player.id)) return;
+    if (!lostClients.has(ws.data.profile.id)) return;
     ws.data.removed = true;
-    wss.sendAllBut('removeClient', ws.data.player.id, ws);
-    clientBase.delete(ws.data.player.id);
-    log.do('sclient', `Sending reuqest to delete client ${ws.data.player.name}`);
+    wss.sendAllBut('removeClient', ws.data.profile.id, ws);
+    activeClients.delete(ws.data.profile.id);
+    log.do('sclient', `Sending reuqest to delete client ${ws.data.profile.name}`);
   }, 10000);
 
   ws.data.timeouts.delete = setTimeout(() => { 
-    if (!lostClients.delete(ws.data.player.id)) return;
-    log.do('sclient', `${ws.data.player.name} was deleted completly`);
+    if (!lostClients.delete(ws.data.profile.id)) return;
+    log.do('sclient', `${ws.data.profile.name} was deleted completly`);
   }, 30000);
 }
 
+//=======================HANDLE LOGIN===========================//
+const handleLogin = (ws, data) => {
+  log.do('slogin', `Got new login ${data.user.login}`);
+
+  if (data.type === 'register') {
+    if (clientBase.has(data.user.login)) {
+      ws.say('loginError', `${data.user.login} is already taken`);
+      log.do('slogin', `Attempt to take existent login`);
+    }
+    else if (clientBase.has(md5(data.user.email))) {
+      ws.say('loginError', 'This email is taken');
+      log.do('slogin', `Got taken email`);
+    }
+    else {
+      log.do('slogin', `Set new client`);
+      const newClient = new Client();
+      newClient.generate(data.user.login, data.user.email);
+      newClient.profile.password = data.user.password;
+      clientBase.set(newClient.profile.login, newClient);
+      clientBase.set(newClient.profile.id, newClient);
+
+      handleClient(ws, newClient);
+    }
+  }
+  else if (data.type === 'login') {
+    let client = clientBase.get(data.user.login)
+    if (!client) {
+      ws.say('loginError', `${data.user.login} is not found`);
+      log.do('slogin', `Got uknown login`);
+    }
+    else if (data.user.password !== client.profile.password) {
+      ws.say('loginError', 'Password is incorrect');
+      log.do('slogin', `Got incorrect password`);
+    }
+    else {
+      if (!data.user.remeber)
+        ;//start death timeout
+      
+      handleClient(ws, client);
+      log.do('slogin', `User ${data.user.login} has loged in`);
+    }
+  }
+  else if (data.type === 'guest') {
+    let guest = new Client();
+    guest.generate(uuid.v4(), "none" + Math.random());
+    guest.profile.name = data.user.login;
+    guestsBase.set(guest.profile.id, guest);
+    log.do('slogin', `Guest ${data.user.login} has been created`);
+    handleClient(ws, guest);
+  }
+  else log.do('serror', 'Unknown type of userLogin');
+  log.do('slogin');
+}
 //==========================SENDERS=============================//
 wss.sendAllBut = (type, data, ignoreClient) => {
   wss.clients.forEach(client => {
@@ -314,10 +422,10 @@ wss.sendAllButRaw = (data, ignoreClient) => {
   });
 }
 
-wss.updateClientStatus = (ws, status = ws.data.player.status) => {
-  ws.data.player.status = status;
+wss.updateClientStatus = (ws, status = ws.data.game.status) => {
+  ws.data.game.status = status;
   wss.sendAllBut('statusUpdate', {
-    id: ws.data.player.id,
+    id: ws.data.profile.id,
     status,
   }, ws);
 }

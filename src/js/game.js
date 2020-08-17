@@ -109,7 +109,6 @@ class Game extends LitElement {
   }
 
   initNewTurn(data) {
-    console.log(data);
     const { cards } = api.host;
     const delFrom = cards.findIndex(card => card.id === data.removeCard.id);
     cards.splice(delFrom, 1);
@@ -264,12 +263,12 @@ class Game extends LitElement {
               choose.owner.id === this.host.id   ? "own"    : "common" }">
               <div class="wrap">
                 <img class="card-image" src="../img/cards/${choose.card.path}">
-                <img class="card-owner" src="../img/avatars/${choose.owner.icon}"
+                <img class="card-owner" src="${choose.owner.avatar.img}"
                      style="background-color: ${choose.owner.color}">
                 <div class="picked-players">
                   ${choose.players.map(player => html`
-                    <img class="picked-player" src="../img/avatars/${player.icon}"
-                      style="background-color: ${player.color}">
+                    <img class="picked-player" src="${player.avatar.img}"
+                      style="background-color: ${player.avatar.color}">
                   `)}
               </div>
               </div>
@@ -365,8 +364,8 @@ class Game extends LitElement {
 
         <div class="leader-container">
           <div class="leader-wrap">
-            <img class="leader-image" src="../img/avatars/${this.leader.icon}"
-              style="background-color: ${this.leader.color}">
+            <img class="leader-image" src="${this.leader.avatar.img}"
+              style="background-color: ${this.leader.avatar.color}">
             <span class="leader-name">${this.leader.name}</span>
             <span class="player-score">${this.leader.score}</span>
           </div>
@@ -400,7 +399,7 @@ class Game extends LitElement {
             <div class="player ${player.status}">
               <img class="player-image" 
                    style="background-color:${player.color}" 
-                   src="../img/avatars/${player.icon}">
+                   src="${player.avatar.img}">
               <div class="playerSnN">
                 <div class="player-name">${player.name}</div>
                 <div class="player-status">${player.status.replace(/-/g,' ')}</div>
@@ -417,8 +416,8 @@ class Game extends LitElement {
     return html`
     <div class="leader-container">
       <div class="leader-wrap">
-        <img class="leader-image" src="../img/avatars/${this.leader.icon}"
-          style="background-color: ${this.leader.color}">
+        <img class="leader-image" src="${this.leader.avatar.img}"
+          style="background-color: ${this.leader.avatar.color}">
         <span class="leader-name">${this.leader.name}</span>
         <span class="player-score">${this.leader.score}</span>
       </div>
