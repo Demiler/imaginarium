@@ -22,6 +22,7 @@ log.setLog('shandler', true);
 const serve = serveStatic('build', { 'index': ['index.html'] })
  
 const server = http.createServer(function onRequest (req, res) {
+  console.log(`On request: ${req} ; ${res}`);
   serve(req, res, finalhandler(req, res))
 })
 const wss = new WebSocket.Server({ server });
@@ -34,15 +35,19 @@ let guestsBase = new Map();
 let activeClients = new clientArray();
 let lostClients = new Map();
 
+if (process.env.NODE_ENV === 'dev') {
+  global.clientBase = () => clientBase;
+  global.guestsBase = () => guestsBase;
+}
 
-//let debugClients = new Array(2)
-//let debugId = ['efae56fb618850255232b26ebe92c65d', 'c620c0203f92972e51dbd5484a6c6638'];
-//for (let i = 0; i < debugClients.length; i++) {
-  //debugClients[i] = new Client()
-  //debugClients[i].generate('Guest' + i, "mail@mail.mail" + i);
-  //debugClients[i].profile.id = debugId[i];
-  //guestsBase.set(debugClients[i].profile.id, debugClients[i]);
-//}
+let debugClients = new Array(2)
+let debugId = ['efae56fb618850255232b26ebe92c65d', 'c620c0203f92972e51dbd5484a6c6638'];
+for (let i = 0; i < debugClients.length; i++) {
+  debugClients[i] = new Client()
+  debugClients[i].generate('Guest' + i, "mail@mail.mail" + i);
+  debugClients[i].profile.id = debugId[i];
+  guestsBase.set(debugClients[i].profile.id, debugClients[i]);
+}
 
 
 activeClients.updateEveryoneStatus = (status, leaderStatus) => {
@@ -207,8 +212,9 @@ wss.handlers.set('removeCard', (ws) => {
 });
 
 wss.handlers.set('IWantNewColor', (ws) => {
-  ws.data.player.color = getColor();
-  wss.sendAll('colorUpdate', { id: ws.data.player.id, color: ws.data.player.color });
+  const color = getColor();
+  ws.data.profile.avatar.color = color;
+  wss.sendAll('colorUpdate', { id: ws.data.profile.id, color });
 });
 
 wss.handlers.set('checkLogin', (ws, login) => {

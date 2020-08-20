@@ -1,7 +1,7 @@
 const { Player } = require('./player.js');
 const getIP = () => {
   return (document.location.href !== 'https://ma-chose.herokuapp.com/') ?
-    'ws://localhost:8081' : 'wss://ma-chose.herokuapp.com';
+    'ws://192.168.1.67:8081' : 'wss://ma-chose.herokuapp.com';
 }
 
 class Api {
@@ -44,6 +44,7 @@ class Api {
     this.ws = new WebSocket(getIP());
 
     this.ws.onopen = () => {
+      console.clear();
       console.log('WebSocket is open now');
       this.tries = 0;
       clearInterval(this.reconnect);

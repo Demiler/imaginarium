@@ -4,6 +4,7 @@ import './game.js'
 import './loading.js'
 import './login.js'
 import { api } from './api.js'
+import * as icons from './icons'
 
 class ImApp extends LitElement {
   static get properties() {
@@ -15,6 +16,7 @@ class ImApp extends LitElement {
 
   constructor() {
     super();
+    console.clear();
     
     this.state = 'loading';
     this.everyonesCards = api.cards;
@@ -35,7 +37,7 @@ class ImApp extends LitElement {
         <im-loading></im-loading>
       `;
       case 'lobby': return html`
-        <im-lobby .clicker=${this.clicker}></im-lobby> 
+        <im-lobby .clicker=${this.clicker}></im-lobby>
       `;
       case 'game': return html`
         <im-game .clicker=${this.clicker}></im-game>

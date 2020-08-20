@@ -1,5 +1,6 @@
 import { LitElement, html } from 'lit-element'
-import '../css/lobby-style.css'
+import '../css/lobby-style.css';
+import './im-navbar.js';
 import { api } from './api';
 
 //const avPath = '../../img/avatars';
@@ -24,17 +25,8 @@ class Lobby extends LitElement {
 
   render() {
     return html`
-      <header>
-        <span class="name-tag">Imaginarium</span>
-        <div class="player">
-          <img class="player-image" style="background-color: ${api.host.avatar.color}" 
-            src="${api.host.avatar.img}" 
-            @click=${() => api.sendServer('IWantNewColor')}>
-          <span class="player-name">${api.host.name}</span>
-        </div>
-      </header>
       <div class="lobby-container">
-
+        <im-navbar></im-navbar>
         <h1>Player List</h1>
 
         <div class="player-list">
