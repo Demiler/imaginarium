@@ -77,29 +77,56 @@ class Slider extends LitElement {
       }
     `;
   }
+
   static get properties() {
     return {
       value: { type: Number },
     }
   }
+
   constructor() {
     super();
     this.value = 0;
     this.wheelStep = 2;
   }
+
   render() {
     return html`
       <input type='range' .value="${this.value}"
       @input=${this.inp}
       @wheel=${this.whee}
+      @keydown=${this.chng}
       >
     `
   }
+
+  fireValueChange() {
+    const valueChange = new Event('valueChange');
+    this.dispatchEvent(valueChange);
+  }
+
+  chng(event) {
+    const { key } = event;
+    let diff = 0;
+    let mult = 0;
+    if (key === 'ArrowLeft') mult = -1;
+    else if (key === 'ArrowRight') mult = 1;
+    else return;
+    if (event.shiftKey) diff += 1;
+    if (event.ctrlKey) diff += 4;  
+    const newValue = this.value + diff * mult
+
+    if (newValue < 0) this.value = 0;
+    else if (newValue > 100) this.value = 100;
+    else this.value = newValue;
+    this.fireValueChange();
+  }
+
   inp(event) {
     this.value = Number(event.target.value);
-    const fireevent = new Event('valueChange');
-    this.dispatchEvent(fireevent);
+    this.fireValueChange();
   }
+
   whee(event) {
     const dir = event.deltaY < 0 ? 'up' : 'down';
     if (dir === 'up')
@@ -112,8 +139,7 @@ class Slider extends LitElement {
         this.value = 0;
       else
         this.value -= this.wheelStep;
-    const fireevent = new Event('valueChange');
-    this.dispatchEvent(fireevent);
+    this.fireValueChange();
   }
 }
 

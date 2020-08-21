@@ -4,6 +4,8 @@ const { getColor } = require('./colors.js');
 
 class Client {
   constructor() {
+    this.avatarType = 
+      ['mp', 'identicon', 'monsterid', 'wavatar', 'retro', 'blank'];
     this.profile = {
       id: undefined,
       name: undefined,
@@ -55,6 +57,16 @@ class Client {
     }
     this.profile.email = email;
     this.profile.id = md5(email);
+  }
+
+  newAvatar() {
+    const type = this.avatarType[this.avatarType.length * Math.random() | 0];
+    this.profile.avatar.img = 
+      gravatar.url(this.profile.email, {
+        size: '256', 
+        d: type
+      }, true);
+    return this.profile.avatar;
   }
 }
 

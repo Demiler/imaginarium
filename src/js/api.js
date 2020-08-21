@@ -44,7 +44,7 @@ class Api {
     this.ws = new WebSocket(getIP());
 
     this.ws.onopen = () => {
-      console.clear();
+      //console.clear();
       console.log('WebSocket is open now');
       this.tries = 0;
       clearInterval(this.reconnect);

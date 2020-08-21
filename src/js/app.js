@@ -3,6 +3,7 @@ import './lobby.js'
 import './game.js'
 import './loading.js'
 import './login.js'
+import './selector.js'
 import { api } from './api.js'
 import * as icons from './icons'
 
@@ -16,7 +17,7 @@ class ImApp extends LitElement {
 
   constructor() {
     super();
-    console.clear();
+    //console.clear();
     
     this.state = 'loading';
     this.everyonesCards = api.cards;
@@ -30,6 +31,9 @@ class ImApp extends LitElement {
 
   render() {
     switch (this.state) {
+      case 'selector': return html`
+        <im-selector></im-selector>
+      `;
       case 'login': return html`
         <im-login></im-login>
       `;

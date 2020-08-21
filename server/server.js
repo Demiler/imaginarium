@@ -61,7 +61,7 @@ activeClients.updateEveryoneStatus = (status, leaderStatus) => {
 }
 //============================APP===============================//
 let app = {
-  state: 'lobby',
+  state: 'selector',
   leader: {},
   leaderId: 0,
   leaderGuess: '',

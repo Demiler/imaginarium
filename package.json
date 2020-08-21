@@ -36,6 +36,7 @@
     "bootstrap-icons": "^1.0.0-alpha5",
     "fastify-static": "^3.2.0",
     "finalhandler": "^1.1.2",
+    "focus-visible": "^5.1.0",
     "gravatar": "^1.8.1",
     "lit-element": "^2.3.1",
     "md5": "^2.3.0",

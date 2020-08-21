@@ -12,7 +12,7 @@ class Player {
   constructor(
     id = '1',
     name = 'guest', 
-    avatar = { img: '0.png', color: "#232323" },
+    avatar = { img: '../../img/avatars/0.png', color: "#232323" },
     status = 'not-ready', 
     score = 0
   ) {
