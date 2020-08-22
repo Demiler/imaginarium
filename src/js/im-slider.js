@@ -88,11 +88,14 @@ class Slider extends LitElement {
     super();
     this.value = 0;
     this.wheelStep = 2;
+    this.min = 0;
+    this.max = 100;
   }
 
   render() {
     return html`
       <input type='range' .value="${this.value}"
+      min=${this.min} max=${this.max}
       @input=${this.inp}
       @wheel=${this.whee}
       @keydown=${this.chng}
@@ -114,10 +117,10 @@ class Slider extends LitElement {
     else return;
     if (event.shiftKey) diff += 1;
     if (event.ctrlKey) diff += 4;  
-    const newValue = this.value + diff * mult
+    const newValue = Number(this.value) + diff * mult
 
-    if (newValue < 0) this.value = 0;
-    else if (newValue > 100) this.value = 100;
+    if (newValue < this.min) this.value = this.min;
+    else if (newValue > this.max) this.value = this.max;
     else this.value = newValue;
     this.fireValueChange();
   }
@@ -129,14 +132,15 @@ class Slider extends LitElement {
 
   whee(event) {
     const dir = event.deltaY < 0 ? 'up' : 'down';
+    this.value = Number(this.value);
     if (dir === 'up')
-      if (this.value + this.wheelStep > 100)
-        this.value = 100;
+      if (this.value + this.wheelStep > this.max)
+        this.value = this.max;
       else
         this.value += this.wheelStep;
     else
-      if (this.value - this.wheelStep < 0)
-        this.value = 0;
+      if (this.value - this.wheelStep < this.min)
+        this.value = this.min;
       else
         this.value -= this.wheelStep;
     this.fireValueChange();

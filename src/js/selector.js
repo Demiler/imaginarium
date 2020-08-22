@@ -1,5 +1,6 @@
 import { LitElement, css, html } from 'lit-element'
 import './im-navbar.js';
+import './create-game.js';
 import * as icons from './icons'
 const { Player } = require('./player.js');
 
@@ -201,6 +202,7 @@ class Selector extends LitElement {
         position: absolute;
         top: calc(50% - 10px);
         left: 8px;
+        z-index: 1;
       }
 
       .btn-image svg {
@@ -224,6 +226,13 @@ class Selector extends LitElement {
         height: 100%;
         background-color: #000000a0;
         z-index: 5;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .create-game.show {
+        display: flex;;
       }
 
     `;
@@ -232,6 +241,10 @@ class Selector extends LitElement {
   constructor() {
     super();
     this.games = gamesDebug;
+  }
+
+  firstUpdated() {
+    this.gameCreator = this.shadowRoot.querySelector('.create-game');
   }
 
   render() {
@@ -245,7 +258,9 @@ class Selector extends LitElement {
           </div>
           <div class='btn-wrap'>
             <span class='btn-image'>${icons.plus}</span>
-            <button class='btn btn-create'> Create game</button>
+            <button class='btn btn-create'
+            @click=${this.createGame}
+            > Create game</button>
           </div>
         </div>
         <div class='games-container'>
@@ -257,9 +272,22 @@ class Selector extends LitElement {
                .maxPlayers=${game.maxPlayers}
             ></im-gameprev>
           `)}
+          
+          <div class='create-game' @click=${this.closeCreator}>
+            <im-create ></im-create>
+          </div>
         </div>
       </div>
     `;
+  }
+
+  closeCreator(event) {
+    if (event.target === event.currentTarget)
+      this.gameCreator.classList.remove('show');
+  }
+
+  createGame() {
+    this.gameCreator.classList.add('show');
   }
 }
 

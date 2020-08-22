@@ -4,6 +4,7 @@ import './game.js'
 import './loading.js'
 import './login.js'
 import './selector.js'
+import './create-game.js'
 import { api } from './api.js'
 import * as icons from './icons'
 
@@ -33,6 +34,8 @@ class ImApp extends LitElement {
     switch (this.state) {
       case 'selector': return html`
         <im-selector></im-selector>
+
+
       `;
       case 'login': return html`
         <im-login></im-login>
