@@ -1,4 +1,5 @@
 import { LitElement, css, html } from 'lit-element'
+import {isValidKey} from './utils/isValidKey.js'
 
 class Foldbutton extends LitElement {
   static get styles() {
@@ -46,8 +47,10 @@ class Foldbutton extends LitElement {
         border-radius: 0 var(--radius) var(--radius) 0;
       }
 
-      :host(:hover) .label,
-      :host(:hover) input {
+      :host(.focus-visible) input,
+      :host(.focus-visible) .label,
+      :host(:hover) input,
+      :host(:hover) .label {
         background-color: var(--background-hover);
       }
 
@@ -78,8 +81,9 @@ class Foldbutton extends LitElement {
     this.active = false;
     this.value = '';
     this.tabIndex = 0;
-    this.onclick = (event) => {
-      const clickbtn = new Event('clicked');
+    this.onkeydown = (event) => {
+      if (!isValidKey(event.key)) return;
+      const clickbtn = new Event('click', {bubbles: true} );
       this.dispatchEvent(clickbtn);
     }
   }
@@ -87,6 +91,7 @@ class Foldbutton extends LitElement {
   firstUpdated() {
     [this.labelField, this.inputField] = this.shadowRoot.children;
     this.inputField.tabIndex = -1;
+    window.applyFocusVisiblePolyfill(this.shadowRoot);
   }
 
   render() {
@@ -101,6 +106,8 @@ class Foldbutton extends LitElement {
     if (Number.isNaN(newValue)) this.value = 0;
     else this.value = newValue;
     this.inputField.value = this.value;
+    const event = new Event('valueChange', {bubbles: true} );
+    this.dispatchEvent(event);
   }
 
   getTarget(event) {

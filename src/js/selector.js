@@ -1,6 +1,8 @@
 import { LitElement, css, html } from 'lit-element'
 import './im-navbar.js';
 import './create-game.js';
+import './css-transition.js';
+import './im-search-filter.js';
 import * as icons from './icons'
 const { Player } = require('./player.js');
 
@@ -166,13 +168,26 @@ class Selector extends LitElement {
       }
 
       .input-group {
+        margin-bottom: 10px;
+      }
+
+      .input-group .top {
         display: flex;
         margin-left: auto;
         margin-right: auto;
-        margin-bottom: 20px;
         width: 100%;
         align-items: center;
         justify-content: space-between;
+        margin-bottom: 20px;
+      }
+
+      .input-group .bottom {
+        display: flex;
+        height: 30px;
+      }
+
+      .search .search-box {
+        width: 100%;
       }
 
       .btn {
@@ -226,16 +241,59 @@ class Selector extends LitElement {
         height: 100%;
         background-color: #000000a0;
         z-index: 5;
-        display: none;
         align-items: center;
         justify-content: center;
+        display: flex;
+
+        transition: .2s;
       }
 
-      .create-game.show {
-        display: flex;;
+      .create-game[exit-done] {
+        display: none;
+      }
+
+      .create-game[enter] {
+        display: flex;
+        opacity: 0;
+      }
+
+      .create-game > * {
+        transition: .8s;
+      }
+
+      .create-game[enter] > * {
+        transform: translateY(-100px);
+      }
+
+      .create-game[exit],
+      .create-game[enter-done],
+      .create-game[enter-active] {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .create-game[exit] > *,
+      .create-game[enter-done] > *,
+      .create-game[enter-active] > * {
+        transform: translateY(0);
+      }
+
+      .create-game[exit-active] {
+        opacity: 0;
+      }
+
+      .create-game[exit-active] > * {
+        opacity: 0;
+        transform: translateY(-100px);
       }
 
     `;
+  }
+
+  static get properties() {
+    return {
+      showMenu: { type: Boolean },
+    }
   }
 
   constructor() {
@@ -252,15 +310,20 @@ class Selector extends LitElement {
       <im-navbar></im-navbar>
       <div class='center'>
         <div class='input-group'>
-          <div class='btn-wrap'>
-            <span class='btn-image'>${icons.lightning}</span>
-            <button class='btn btn-quick'> Quick game</button>
+          <div class='top'>
+            <div class='btn-wrap'>
+              <span class='btn-image'>${icons.lightning}</span>
+              <button class='btn btn-quick'> Quick game</button>
+            </div>
+            <div class='btn-wrap'>
+              <span class='btn-image'>${icons.plus}</span>
+              <button class='btn btn-create'
+              @click=${this.createGame}
+              > Create game</button>
+            </div>
           </div>
-          <div class='btn-wrap'>
-            <span class='btn-image'>${icons.plus}</span>
-            <button class='btn btn-create'
-            @click=${this.createGame}
-            > Create game</button>
+          <div class='search bottom'>
+            <im-search-filter class='search-box'></im-search-filter>
           </div>
         </div>
         <div class='games-container'>
@@ -273,21 +336,28 @@ class Selector extends LitElement {
             ></im-gameprev>
           `)}
           
-          <div class='create-game' @click=${this.closeCreator}>
-            <im-create ></im-create>
-          </div>
         </div>
+        <!--<div class='create-game' @click=${this.closeCreator}>-->
+        <css-transition .in=${this.showMenu} class='create-game'
+         .timeout=${200}
+         @click=${this.closeCreator}>
+          <im-create></im-create>
+        </css-transition>
+        <!--</div>-->
       </div>
     `;
   }
 
   closeCreator(event) {
     if (event.target === event.currentTarget)
-      this.gameCreator.classList.remove('show');
+      //this.gameCreator.classList.remove('show');
+      this.showMenu = false;
   }
 
   createGame() {
-    this.gameCreator.classList.add('show');
+    //this.gameCreator.classList.add('show');
+    this.showMenu = true;
+    this.shadowRoot.querySelector('im-create').focus();
   }
 }
 

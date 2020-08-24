@@ -10,6 +10,10 @@ import SVGchvronright from '../../assets/icons/chevron-right.svg'
 import SVGenvelope from '../../assets/icons/envelope-fill.svg'
 import SVGlightning from '../../assets/icons/lightning-fill.svg'
 import SVGplus from '../../assets/icons/plus-circle-fill.svg'
+import SVGfunnel from '../../assets/icons/funnel-fill.svg'
+import SVGchevrondown from '../../assets/icons/chevron-down.svg'
+import SVGcheck from '../../assets/icons/check.svg'
+//import SVG from '../../assets/icons/.svg'
 
 export const person = svg([SVGperson]);
 export const mute = svg([SVGmute]);
@@ -23,3 +27,7 @@ export const chvronRight = svg([SVGchvronright]);
 export const envelope = svg([SVGenvelope]);
 export const lightning = svg([SVGlightning]);
 export const plus = svg([SVGplus]);
+export const funnel = svg([SVGfunnel]);
+export const chevronDown = svg([SVGchevrondown]);
+export const check = svg([SVGcheck]);
+//export const  = svg([SVG]);

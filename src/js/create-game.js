@@ -2,6 +2,7 @@ import { LitElement, css, html } from 'lit-element'
 import './im-input2.js'
 import './im-slider.js'
 import './im-fold-button.js'
+import { isValidKey } from './utils/isValidKey.js'
 import * as icons from './icons.js'
 
 class CreateGame extends LitElement {
@@ -89,6 +90,7 @@ class CreateGame extends LitElement {
         --background-active: #4f4f98;
         --separator: #343457;
       }
+
       .setting .btn-cards {
         margin-left: 10px;
       }
@@ -100,10 +102,12 @@ class CreateGame extends LitElement {
       .players-count {
         display: flex;
         align-items: center;
+        height: 30px;
       }
 
       .slider {
         width: 100%;
+        height: 100%;
         --track-color: #515180;
         --track-color-focus: #555599;
         --thumb-width: 20px;
@@ -170,20 +174,22 @@ class CreateGame extends LitElement {
 
       <im-input2 class='setting game-title'
         .placeholder=${'title'}
-        @input=${({currentTarget}) => this.value = currentTarget.value.trim()}
+        @input=${({currentTarget}) => this.title = currentTarget.value.trim()}
       ></im-input2>
 
       <div class='setting play-style'>
         <div class='title'>Play until</div>
-        <div class='input-group' @click=${this.playStyle}>
-          <im-foldbutton class='btn-score'>max score</im-foldbutton>
+        <div class='input-group' @click=${this.playStyleChange}>
+          <im-foldbutton class='btn-score'
+           @valueChange=${({target}) => this.maxScore = target.value }
+          >max score</im-foldbutton>
           <button class='btn btn-cards'>cards run out</button>
         </div>
       </div>
 
       <div class='setting connection-type'>
         <div class='title'>Connection type</div>
-        <div class='input-group' @click=${this.connectionType}>
+        <div class='input-group' @click=${this.connectionTypeChange}>
           <button class='btn btn-open'>open</button>
           <button class='btn btn-friends'>friends only</button>
           <button class='btn btn-private'>private</button>
@@ -194,9 +200,9 @@ class CreateGame extends LitElement {
         <div class='title'>Maximum players</div>
         <div class='players-count'>
           <im-slider .min=${3} .max=${8} class='slider' .wheelStep=${1}
-          @valueChange=${({currentTarget}) => this.count = currentTarget.value}
+          @valueChange=${({currentTarget}) => this.maxPlayers = currentTarget.value}
           ></im-slider>
-          <span class='count'>${this.count}</span>
+          <span class='count'>${this.maxPlayers}</span>
         </div>
       </div>
 
@@ -205,27 +211,40 @@ class CreateGame extends LitElement {
         <div class='link-field' tabIndex=0 
          @keydown=${this.copyLink}
          @click=${this.copyLink}
-       >
+        >
          <span class='text'>${this.link}</span>
          <span class='copied-popup'>copied</span>
        </div>
       </div>
 
-      <button class='btn btn-create'>create</button>
+      <button class='btn btn-create'
+      @click=${this.createGame}
+      >create</button>
     `;
   }
 
-  copyLink(event) {
-    if (event.type === 'keydown') {
-      if (event.key !== ' ' && event.key !== 'Enter') return;
+  createGame(event) {
+    const gameData = {
+      title: this.title,
+      playStyle: this.playStyle,
+      maxScore: this.maxScore,
+      connectionType: this.connectionType,
+      maxPlayers: this.maxPlayers,
+      link: this.link
     }
+    //api.sendServer('create-game', gameData);
+    console.log('request send!');
+  }
+
+  copyLink(event) {
+    if (event.type === 'keydown' && !isValidKey(event.key)) return;
 
     this.linkPopup.style="opacity: 1; top: 30px;" 
     setTimeout(() => this.linkPopup.style="", 500);
     navigator.clipboard.writeText(this.link);
   }
 
-  playStyle(event) {
+  playStyleChange(event) {
     if (event.currentTarget === event.target) return;
     if (event.target === this.choosenPlayStyle) return;
     this.choosenPlayStyle.tabIndex = 0;
@@ -242,9 +261,10 @@ class CreateGame extends LitElement {
       this.choosenPlayStyle.classList.add('active');
 
     this.choosenPlayStyle.tabIndex = -1;
+    this.playStyle = this.choosenPlayStyle.innerText;
   }
 
-  connectionType(event) {
+  connectionTypeChange(event) {
     if (event.currentTarget === event.target) return;
     if (event.target === this.choosenConnection) return;
     this.choosenConnection.tabIndex = 0;
@@ -252,12 +272,16 @@ class CreateGame extends LitElement {
     this.choosenConnection = event.target;
     this.choosenConnection.classList.add('active');
     this.choosenConnection.tabIndex = -1;
+    this.connectionType = this.choosenConnection.innerText;
   }
 
   firstUpdated() {
     this.choosenPlayStyle = this.shadowRoot.querySelector('.btn-score');
     this.choosenConnection = this.shadowRoot.querySelector('.btn-open');
     this.linkPopup = this.shadowRoot.querySelector('.copied-popup');
+
+    this.connectionType = this.choosenConnection.innerText;
+    this.playStyle = this.choosenPlayStyle.innerText;
 
     setTimeout(() => this.choosenPlayStyle.activate(false), 1);
     this.choosenConnection.classList.add('active');
@@ -269,14 +293,14 @@ class CreateGame extends LitElement {
 
   constructor() {
     super();
-    this.count = 3;
-    this.score = 50;
+    this.maxPlayers = 3;
+    this.maxScore = 50;
     this.link = 'imgn.com/game?id=23j1oi23j';
   }
 
   static get properties() {
     return {
-      count: { type: Number },
+      maxPlayers: { type: Number },
     }
   }
 }
